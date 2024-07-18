@@ -4,7 +4,7 @@
 ## Author: DruidVerjin
 ## Version: 0.0.1
 ## SavedVariablesPerCharacter: NexusManager_CharacterData
-## SavedVariables: NexusManager_AccountData
+## SavedVariables: NexusManagerDB
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
@@ -20,4 +20,9 @@ Libs\AceDB-3.0\AceDB-3.0.xml
 Libs\AceDBOptions-3.0\AceDBOptions-3.0.xml
 Libs\AceSerializer-3.0\AceSerializer-3.0.xml
 
-Test.lua
+Initialization.lua
+locales.xml
+DB.lua
+UIFunctions.lua
+UI.lua
+AddTodoFrame.lua
