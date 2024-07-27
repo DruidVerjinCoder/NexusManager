@@ -2,8 +2,10 @@ local NM = LibStub("AceAddon-3.0"):GetAddon("NexusManager")
 local AceGUI = LibStub("AceGUI-3.0")
 
 local mainFrameName = "NexusManagerFrame"
-
+local L = NM.Locale
 NM.mainFrame = nil
+
+local mainUiTotal = 0
 
 NM.ui = {
     todo = {
@@ -49,6 +51,76 @@ function NM:reloadScrollFrameTable()
         NM.ui.todo.container:AddChild(edit);
         NM.ui.todo.container:AddChild(delete);
     end
+end
+
+function NM:InitializePostrunContainer()
+    NM.ui.postrun = AceGUI:Create("SimpleGroup")
+
+
+    local farmName = NM.UIFunctions:createEditBox("Farm-Name", 0, function(widget, event, text)
+        NM.session.farmName = text
+        NM:Log("Farm-Name set to " .. text)
+    end)
+
+    NM.ui.postrun:AddChild(farmName)
+
+    local multiLineEditBox = AceGUI:Create("MultiLineEditBox")
+    multiLineEditBox:SetLabel("")
+    local initialText = L["LA not running or paused. Please start or resume the session."];
+    multiLineEditBox:SetText(initialText)
+    multiLineEditBox:SetFocus()
+    multiLineEditBox:SetWidth(325)
+    multiLineEditBox:DisableButton(true)
+    multiLineEditBox:SetNumLines(14)
+
+    NM.ui.postrun:SetUserData("postrunBox", multiLineEditBox)
+
+    NM.ui.postrun:AddChild(multiLineEditBox)
+
+    ---- Aktionen
+    local sessionActions = AceGUI:Create("ScrollFrame")
+    sessionActions:SetLayout("Table")
+    sessionActions:SetUserData("table", {
+        columns = { 75, 75, 150 },
+        align = "CENTER"
+    })
+    sessionActions:SetFullWidth(true)
+    sessionActions:SetHeight(60)
+    if sessionActions.frame.GetBackdrop then
+        sessionActions.frame:SetBackdrop(nil);
+    end
+
+    -- Aktionen
+    local addIcon = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\add", 25,
+        "State die session")
+    addIcon:SetCallback("OnClick", function()
+        local isSessionRunning = NM.LA.Session.IsRunning()
+        local isSessionPaused = NM.LA.Session.IsPaused();
+
+        if not isSessionRunning then
+            NM.session:start()
+        elseif isSessionPaused and isSessionRunning then
+            NM.session:restart()
+        else
+            NM.session:pause()
+        end
+        NM.LA.UI.ShowMainWindow(true)
+    end);
+
+    sessionActions:AddChild(addIcon)
+
+    local reload = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\replay", 25,
+        "Lade die Todo's neu")
+    reload:SetCallback("OnClick", function()
+        NM:LoadMissingProfessionTodoToCharacter();
+        NM:reloadScrollFrameTable()
+    end);
+    sessionActions:AddChild(reload)
+
+    NM.ui.postrun:AddChild(sessionActions)
+
+    NM:Log("After initializing postrunContainer")
+    return NM.ui.postrun;
 end
 
 function NM:InitializeTodoTabContainer()
@@ -111,16 +183,32 @@ function NM:InitializeTodoTabContainer()
     return mainContainer;
 end
 
+local function reloadPostrunContainer()
+    if NM.ui.postrun and NM.session.state == 'running' then
+        NM.ui.postrun:GetUserData("postrunBox"):SetText(NM.session:GetPostrunMsg())
+    end
+end
+
 function NM:CreateMainFrame()
     if NM.mainFrame == nil or NM.mainFrame.isInitialized == false then
         local mainFrame = CreateFrame("Frame", mainFrameName, UIParent, "PortraitFrameFlatTemplate")
+        mainFrame:SetScript("OnUpdate", function(_, elapsed)
+            mainUiTotal = mainUiTotal + elapsed
+            if mainUiTotal >= 1 then
+                reloadPostrunContainer()
+            end
+
+            if elapsed >= 25 then
+                NM:Log("Update Backup String")
+            end
+        end)
         local portraitTexture = mainFrame:CreateTexture(nil, "OVERLAY")
         portraitTexture:SetDrawLayer("ARTWORK", 2)
         portraitTexture:SetTexture("Interface\\AddOns\\NexusManager\\Media\\cm_icon")
         portraitTexture:SetSize(53.1, 53.1)
         portraitTexture:SetPoint("TOPLEFT", mainFrame.PortraitContainer.portrait, "TOPLEFT", 3.5, -3)
         mainFrame:SetTitle("NexusManager")
-        mainFrame:SetWidth(400)
+        mainFrame:SetWidth(350)
         mainFrame:SetHeight(400)
         mainFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 30, -30);
         mainFrame:SetMovable(true)
@@ -131,7 +219,7 @@ function NM:CreateMainFrame()
         mainFrame:Hide()
 
         local tabs = {}
-        local tabNames = { "To-Dos", "Statistics" }
+        local tabNames = { "To-Dos", "Postrun", "Items", "Backup" }
         local tabContainers = {}
 
         for i = 1, #tabNames do
@@ -146,7 +234,9 @@ function NM:CreateMainFrame()
         end
 
         local todosContainer = tabContainers[1]
-        local statsContainer = tabContainers[2]
+        local postrunContainer = tabContainers[2]
+        local itemContainer = tabContainers[3]
+        local backupContainer = tabContainers[4]
 
         -- Funktion zur Aktualisierung der Tabs und Container
         local function UpdateTabs(selectedID)
@@ -156,19 +246,11 @@ function NM:CreateMainFrame()
                     if j == 1 then
                         tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -30)
                         todosContainer:AddChild(NM:InitializeTodoTabContainer())
-                        --todosContainer.isInitialized = true
-                    elseif j == 2 and not statsContainer.isInitialized then
-                        tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -40)
-                        local simpleGroup = AceGUI:Create("SimpleGroup")
-                        simpleGroup:SetLayout("Flow")
-                        simpleGroup:SetFullWidth(true)
-
-                        local label = AceGUI:Create("Label")
-                        label:SetText("Statistics will be here")
-                        simpleGroup:AddChild(label)
-
-                        statsContainer:AddChild(simpleGroup)
-                        statsContainer.isInitialized = true
+                        NM.currentTab = "todo"
+                    elseif j == 2 then
+                        tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -30)
+                        postrunContainer:AddChild(NM:InitializePostrunContainer())
+                        NM.currentTab = "postrun"
                     end
                 else
                     tabContent.frame:Hide()
@@ -192,21 +274,16 @@ function NM:CreateMainFrame()
         PanelTemplates_SetTab(mainFrame, 1)
 
         mainFrame.Tabs = tabs
-        mainFrame.TabContainers = { overviewContainer, todosContainer, statsContainer }
+        mainFrame.TabContainers = { todosContainer, postrunContainer, itemContainer, backupContainer }
 
         UpdateTabs(1)
         mainFrame.isInitialized = true
 
         mainFrame:SetScript("OnDragStop", function(self)
             self:StopMovingOrSizing()
-            -- Update the position of the CreateAddTodoFrame window
-            if CreateAddTodoFrameWindow then
-                CreateAddTodoFrameWindow:SetPoint("TOPLEFT", mainFrame, "TOPRIGHT", 10, 0)
-            end
         end)
 
         NM.mainFrame = mainFrame
     end
-
     NM.mainFrame:Show()
 end

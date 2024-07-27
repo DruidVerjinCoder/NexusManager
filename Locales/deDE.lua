@@ -20,3 +20,22 @@ L["Cooking"] = "Kochkunst"
 L["Description: "] = "Beschreibung: "
 L["Source: "] = "Quelle: "
 L["Repeatable: "] = "Wiederholbar: "
+
+---[[
+-- Class Names
+--]]
+
+L["Kriegerin"] = "Krieger"
+L["Jägerin"] = "Jäger"
+L["Magierin"] = "Magier"
+L["Schurkin"] = "Schurke"
+L["Priesterin"] = "Priester"
+L["Hexenmeisterin"] = "Hexenmeister"
+L["Paladin"] = "Paladin"
+L["Druidin"] = "Druide"
+L["Schamanin"] = "Schamane"
+L["Monk"] = "Mönch"
+L["Deathknight"] = "Todesritter"
+L["Dämonenjägerin"] = "Dämonenjäger"
+L["Evoker"]="Rufer"
+L["Ruferin"]="Rufer"

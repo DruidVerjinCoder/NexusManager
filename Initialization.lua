@@ -1,4 +1,7 @@
-NM = LibStub("AceAddon-3.0"):NewAddon("NexusManager", "AceConsole-3.0")
+NM = LibStub("AceAddon-3.0"):NewAddon("NexusManager", "AceConsole-3.0", "AceEvent-3.0")
+local LA = LibStub("AceAddon-3.0"):GetAddon("LootAppraiser");
+NM.LA = LA
+
 local AceDB = LibStub("AceDB-3.0")
 local log = true;
 
@@ -57,6 +60,11 @@ function NM:OnEnable()
     NM:RegisterChatCommand("nm", "OpenNexusManager")
     NM:ResetCompletedTodos()
     NM:LoadMissingProfessionTodoToCharacter();
+
+    NM:RegisterEvent("CHAT_MSG_LOOT", NM.session.itemLooted)
+    NM:RegisterEvent("CHAT_MSG_MONEY", NM.session.moneyLooted)
+    NM:RegisterEvent("UPDATE_INSTANCE_INFO", NM.session.zoneSwitched)
+    NM:RegisterEvent("PLAYER_MONEY", NM.session.moneyChanged)
 end
 
 function NM:OpenNexusManager(input)

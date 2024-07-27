@@ -39,12 +39,11 @@ function NM.UIFunctions:createCheckBox(label, value, OnValueChanged)
     return chkBox;
 end
 
-function NM.UIFunctions:createEditBox(label, width)
+function NM.UIFunctions:createEditBox(label,width,onEnterPressedCallBack)
     local editBox = AceGUI:Create("EditBox")
     editBox:SetLabel(label)
-    editBox:SetWidth(width)
-    editBox:DisableButton(true)
-    return editBox;
+    editBox:SetCallback("OnEnterPressed",onEnterPressedCallBack)
+    return editBox
 end
 
 function NM.UIFunctions:createMultiLineEditBox(label, width, numLines)
@@ -99,4 +98,6 @@ function NM.UIFunctions:createButtonGroup(tableConfig)
 
     return buttonGroup
 end
+
+
 

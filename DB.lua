@@ -1,5 +1,4 @@
 local NM = LibStub("AceAddon-3.0"):GetAddon("NexusManager")
-local AceDB = LibStub("AceDB-3.0")
 
 local L = NM.Locale
 
