@@ -9,7 +9,6 @@ local INSTANCE_RESET_SUCCESS, OKAY, LOOT_ITEM_SELF, LOOT_ITEM_SELF_MULTIPLE, AMO
     , OKAY,
     LOOT_ITEM_SELF, LOOT_ITEM_SELF_MULTIPLE, AMOUNT_RECEIVED_COLON
 
--- Loot Appraiser Patterns
 local PATTERN_LOOT_ITEM_SELF = LOOT_ITEM_SELF:gsub("%%s", "(.+)")
 local PATTERN_LOOT_ITEM_SELF_MULTIPLE = LOOT_ITEM_SELF_MULTIPLE:gsub("%%s", "(.+)"):gsub("%%d", "(%%d+)")
 
@@ -25,7 +24,6 @@ local session = {
 
 function session:init()
     self:reset()
-    session.state = 'running'
 end
 
 function session:reset()
@@ -82,11 +80,12 @@ function session:addItem(itemID, quantity)
     local itemName, itemLink, itemQuality, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount, itemEquipLoc,
     itemTexture, sellPrice, classID,
     subclassID, bindType, expacID, setID, isCraftingReagent = C_Item.GetItemInfo(itemID)
+    session:PrintItem(itemID);
 end
 
 function session:GetPostrunMsg()
     if session.state then
-        local liv, lootedCurrency = 0
+        local liv, lootedCurrency = 0, 0
 
         if NM.LA.Session.IsRunning() then
             liv = NM.LA.Session.GetCurrentSession("liv")
@@ -94,37 +93,45 @@ function session:GetPostrunMsg()
         end
 
         local msg = "!postrun " .. session.farmName .. "\n" ..
-            "Klasse: " .. L[session.class] .. "\n" ..
-            "Zeit: " .. session:GetDurationString(NM.LA.Session.GetCurrentSession("start")) .. "\n" ..
-            "LIV: " .. session:FormatGold(liv) .. "\n" ..
-            "Ungewöhnlich: " .. "\n" ..
-            "Selten: " .. "\n" ..
-            "Episch: " .. "\n" ..
-            "Gold gelooted: " .. "\n" ..
-            "Gold gesamt: " .. "\n" ..
-            "Anmerkung: " ..
-            "";
+            L["Class: "] .. L[session.class] .. "\n" ..
+            L["Duration: "] .. session:GetDurationString(NM.LA.Session.GetCurrentSession("start")) .. "\n" ..
+            L["LIV: "] .. session:FormatGold(liv) .. "\n" ..
+            L["Uncommon: "] .. "\n" ..
+            L["Rare: "] .. "\n" ..
+            L["Epic: "] .. "\n" ..
+            L["Gold looted: "] .. session:FormatGold(lootedCurrency) .. "\n" ..
+            L["Gold total: "] .. "\n" ..
+            L["Annotation: "] .. "-"
+        ;
         return msg;
     end
 
-    return "-"
+    return L["LA not running or paused. Please start or resume the session."]
 end
 
 function session:start()
-    NM.LA.Session.Start(true);
     NM.session:init()
+    NM.LA.Session.Start(true);
+    NM.session.state = 'running'
+    NM:Print(L["Session was started"])
+end
+
+function session:continue()
+    NM.LA.Session.Restart();
     NM.session.state = 'running'
 end
 
 function session:restart()
-    NM.LA.Session.Restart();
-    NM.session:reset()
+    NM.LA.Session.New();
+    NM.session:init()
     NM.session.state = 'running'
+    NM:Print(L["Session was restarted"])
 end
 
 function session:pause()
     NM.LA.Session.Pause();
     NM.session.state = 'paused'
+    NM:Print(L["Session was paused"])
 end
 
 function session:GetDurationString(deltaTime)
@@ -161,6 +168,34 @@ function session:FormatGold(value)
     else
         return goldValue:sub(1, pos) .. "," .. goldValue:sub(pos + 1)
     end
+end
+
+function session:PrintItem(itemID)
+    local itemName, itemLink, itemQuality, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount, itemEquipLoc,
+    itemTexture, sellPrice, classID,
+    subclassID, bindType, expacID, setID, isCraftingReagent = C_Item.GetItemInfo(itemID)
+
+    NM:Print("Item Info:")
+    NM:Print("  Name: " .. itemName)
+    NM:Print("  Link: " .. itemLink)
+    NM:Print("  Quality: " .. itemQuality)
+    NM:Print("  Level: " .. itemLevel)
+    NM:Print("  Min Level: " .. itemMinLevel)
+    NM:Print("  Type: " .. itemType)
+    NM:Print("  SubType: " .. itemSubType)
+    NM:Print("  Stack Count: " .. itemStackCount)
+    NM:Print("  Equip Loc: " .. itemEquipLoc)
+    NM:Print("  Texture: " .. itemTexture)
+    NM:Print("  Sell Price: " .. sellPrice)
+    NM:Print("  Class ID: " .. classID)
+    NM:Print("  Subclass ID: " .. subclassID)
+    NM:Print("  Bind Type: " .. bindType)
+    NM:Print("  Expansion ID: " .. expacID)
+    if setID then
+        NM:Print("  Set ID: " .. setID)
+    end
+    NM:Print("  Crafting Reagent: " .. (isCraftingReagent and "Yes" or "No"))
+    NM:print("======================")
 end
 
 NM.session = session;

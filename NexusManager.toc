@@ -24,6 +24,7 @@ Initialization.lua
 Session.lua
 locales.xml
 DB.lua
+ui/PostRunTab.lua
 UIFunctions.lua
 UI.lua
 AddTodoFrame.lua

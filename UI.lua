@@ -21,7 +21,7 @@ NM.ui = {
 function NM:reloadScrollFrameTable()
     NM.ui.todo.container:ReleaseChildren()
 
-    NM.ui.todo.container:AddChild(NM.UIFunctions:createLabel("To-Do", 240))
+    NM.ui.todo.container:AddChild(NM.UIFunctions:createLabel("To-Do", 200))
     NM.ui.todo.container:AddChild(NM.UIFunctions:createLabel("", 30))
     NM.ui.todo.container:AddChild(NM.UIFunctions:createLabel("", 30))
 
@@ -38,10 +38,10 @@ function NM:reloadScrollFrameTable()
 
         NM.ui.todo.container:AddChild(chkBox)
 
-        local edit = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\settings_3", 20,
+        local edit = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\icons\\setting", 20,
             "Todo-Bearbeiten")
 
-        local delete = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\cross", 20,
+        local delete = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\icons\\trash", 20,
             "Todo Löschen")
         delete:SetCallback("OnClick", function()
             NM:DeleteTodo(todo.key)
@@ -51,76 +51,6 @@ function NM:reloadScrollFrameTable()
         NM.ui.todo.container:AddChild(edit);
         NM.ui.todo.container:AddChild(delete);
     end
-end
-
-function NM:InitializePostrunContainer()
-    NM.ui.postrun = AceGUI:Create("SimpleGroup")
-
-
-    local farmName = NM.UIFunctions:createEditBox("Farm-Name", 0, function(widget, event, text)
-        NM.session.farmName = text
-        NM:Log("Farm-Name set to " .. text)
-    end)
-
-    NM.ui.postrun:AddChild(farmName)
-
-    local multiLineEditBox = AceGUI:Create("MultiLineEditBox")
-    multiLineEditBox:SetLabel("")
-    local initialText = L["LA not running or paused. Please start or resume the session."];
-    multiLineEditBox:SetText(initialText)
-    multiLineEditBox:SetFocus()
-    multiLineEditBox:SetWidth(325)
-    multiLineEditBox:DisableButton(true)
-    multiLineEditBox:SetNumLines(14)
-
-    NM.ui.postrun:SetUserData("postrunBox", multiLineEditBox)
-
-    NM.ui.postrun:AddChild(multiLineEditBox)
-
-    ---- Aktionen
-    local sessionActions = AceGUI:Create("ScrollFrame")
-    sessionActions:SetLayout("Table")
-    sessionActions:SetUserData("table", {
-        columns = { 75, 75, 150 },
-        align = "CENTER"
-    })
-    sessionActions:SetFullWidth(true)
-    sessionActions:SetHeight(60)
-    if sessionActions.frame.GetBackdrop then
-        sessionActions.frame:SetBackdrop(nil);
-    end
-
-    -- Aktionen
-    local addIcon = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\add", 25,
-        "State die session")
-    addIcon:SetCallback("OnClick", function()
-        local isSessionRunning = NM.LA.Session.IsRunning()
-        local isSessionPaused = NM.LA.Session.IsPaused();
-
-        if not isSessionRunning then
-            NM.session:start()
-        elseif isSessionPaused and isSessionRunning then
-            NM.session:restart()
-        else
-            NM.session:pause()
-        end
-        NM.LA.UI.ShowMainWindow(true)
-    end);
-
-    sessionActions:AddChild(addIcon)
-
-    local reload = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\replay", 25,
-        "Lade die Todo's neu")
-    reload:SetCallback("OnClick", function()
-        NM:LoadMissingProfessionTodoToCharacter();
-        NM:reloadScrollFrameTable()
-    end);
-    sessionActions:AddChild(reload)
-
-    NM.ui.postrun:AddChild(sessionActions)
-
-    NM:Log("After initializing postrunContainer")
-    return NM.ui.postrun;
 end
 
 function NM:InitializeTodoTabContainer()
@@ -142,14 +72,14 @@ function NM:InitializeTodoTabContainer()
     end
 
     -- Aktionen
-    local addIcon = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\add", 25,
+    local addIcon = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\icons\\plus", 25,
         "Neues Todo anlegen")
     addIcon:SetCallback("OnClick", function()
         NM.createTodo:Create();
     end);
     buttonContainer:AddChild(addIcon)
 
-    local reload = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\replay", 25,
+    local reload = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\icons\\recycle", 25,
         "Lade die Todo's neu")
     reload:SetCallback("OnClick", function()
         NM:LoadMissingProfessionTodoToCharacter();
@@ -162,7 +92,7 @@ function NM:InitializeTodoTabContainer()
     local todoContainer = AceGUI:Create("ScrollFrame")
     todoContainer:SetLayout("Table")
     todoContainer:SetUserData("table", {
-        columns = { 310, 30, 30 },
+        columns = { 240, 30, 30 },
         space = 1,
         align = "LEFT"
     })
@@ -184,14 +114,20 @@ function NM:InitializeTodoTabContainer()
 end
 
 local function reloadPostrunContainer()
-    if NM.ui.postrun and NM.session.state == 'running' then
-        NM.ui.postrun:GetUserData("postrunBox"):SetText(NM.session:GetPostrunMsg())
+    if NM.ui.postrun then
+        NM.ui.postrun.output:SetText(NM.session:GetPostrunMsg())
     end
 end
 
 function NM:CreateMainFrame()
     if NM.mainFrame == nil or NM.mainFrame.isInitialized == false then
         local mainFrame = CreateFrame("Frame", mainFrameName, UIParent, "PortraitFrameFlatTemplate")
+        local portraitTexture = mainFrame:CreateTexture(nil, "OVERLAY")
+        portraitTexture:SetDrawLayer("ARTWORK", 2)
+        portraitTexture:SetTexture("Interface\\AddOns\\NexusManager\\Media\\cm_icon")
+        portraitTexture:SetSize(53.1, 53.1)
+        portraitTexture:SetPoint("TOPLEFT", mainFrame.PortraitContainer.portrait, "TOPLEFT", 3.5, -3)
+
         mainFrame:SetScript("OnUpdate", function(_, elapsed)
             mainUiTotal = mainUiTotal + elapsed
             if mainUiTotal >= 1 then
@@ -202,11 +138,6 @@ function NM:CreateMainFrame()
                 NM:Log("Update Backup String")
             end
         end)
-        local portraitTexture = mainFrame:CreateTexture(nil, "OVERLAY")
-        portraitTexture:SetDrawLayer("ARTWORK", 2)
-        portraitTexture:SetTexture("Interface\\AddOns\\NexusManager\\Media\\cm_icon")
-        portraitTexture:SetSize(53.1, 53.1)
-        portraitTexture:SetPoint("TOPLEFT", mainFrame.PortraitContainer.portrait, "TOPLEFT", 3.5, -3)
         mainFrame:SetTitle("NexusManager")
         mainFrame:SetWidth(350)
         mainFrame:SetHeight(400)
@@ -249,7 +180,10 @@ function NM:CreateMainFrame()
                         NM.currentTab = "todo"
                     elseif j == 2 then
                         tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -30)
-                        postrunContainer:AddChild(NM:InitializePostrunContainer())
+                        if not NM.ui.postrun then
+                            NM.postrun:Create()
+                            postrunContainer:AddChild(NM.ui.postrun)
+                        end
                         NM.currentTab = "postrun"
                     end
                 else
