@@ -31,17 +31,17 @@ function NM:reloadScrollFrameTable()
         chkBox:SetWidth(250)
 
         if todo.type == "profession" then
-            chkBox:SetImage("Interface\\AddOns\\NexusManager\\Media\\profession\\" .. todo.assignment)
+            chkBox:SetImage("Interface\\AddOns\\NexusManager\\assets\\profession\\" .. todo.assignment)
         end
 
         chkBox:SetDescription(todo.description)
 
         NM.ui.todo.container:AddChild(chkBox)
 
-        local edit = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\icons\\setting", 20,
+        local edit = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\assets\\icons\\setting", 20,
             "Todo-Bearbeiten")
 
-        local delete = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\icons\\trash", 20,
+        local delete = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\assets\\icons\\trash", 20,
             "Todo Löschen")
         delete:SetCallback("OnClick", function()
             NM:DeleteTodo(todo.key)
@@ -72,14 +72,14 @@ function NM:InitializeTodoTabContainer()
     end
 
     -- Aktionen
-    local addIcon = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\icons\\plus", 25,
+    local addIcon = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\assets\\icons\\plus", 25,
         "Neues Todo anlegen")
     addIcon:SetCallback("OnClick", function()
         NM.createTodo:Create();
     end);
     buttonContainer:AddChild(addIcon)
 
-    local reload = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\icons\\recycle", 25,
+    local reload = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\assets\\icons\\recycle", 25,
         "Lade die Todo's neu")
     reload:SetCallback("OnClick", function()
         NM:LoadMissingProfessionTodoToCharacter();
@@ -124,7 +124,7 @@ function NM:CreateMainFrame()
         local mainFrame = CreateFrame("Frame", mainFrameName, UIParent, "PortraitFrameFlatTemplate")
         local portraitTexture = mainFrame:CreateTexture(nil, "OVERLAY")
         portraitTexture:SetDrawLayer("ARTWORK", 2)
-        portraitTexture:SetTexture("Interface\\AddOns\\NexusManager\\Media\\cm_icon")
+        portraitTexture:SetTexture("Interface\\AddOns\\NexusManager\\assets\\cm_icon")
         portraitTexture:SetSize(53.1, 53.1)
         portraitTexture:SetPoint("TOPLEFT", mainFrame.PortraitContainer.portrait, "TOPLEFT", 3.5, -3)
 
@@ -150,10 +150,11 @@ function NM:CreateMainFrame()
         mainFrame:Hide()
 
         local tabs = {}
-        local tabNames = { "To-Dos", "Postrun", "Items", "Backup" }
+        local tabNames = { "To-Dos", "Postrun", "Items", "Challenge" }
         local tabContainers = {}
 
         for i = 1, #tabNames do
+            print("Create Container for " .. tabNames[i])
             local container = AceGUI:Create("SimpleGroup")
             container:SetLayout("Fill")
             container:SetHeight(200);
@@ -167,7 +168,7 @@ function NM:CreateMainFrame()
         local todosContainer = tabContainers[1]
         local postrunContainer = tabContainers[2]
         local itemContainer = tabContainers[3]
-        local backupContainer = tabContainers[4]
+        local challengeContainer = tabContainers[4]
 
         -- Funktion zur Aktualisierung der Tabs und Container
         local function UpdateTabs(selectedID)
@@ -185,6 +186,13 @@ function NM:CreateMainFrame()
                             postrunContainer:AddChild(NM.ui.postrun)
                         end
                         NM.currentTab = "postrun"
+                    elseif j == 4 then
+                        tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -50)
+                        if not NM.ui.challenge then
+                            NM.ChallengeTab:Create()
+                            challengeContainer:AddChild(NM.ui.challenge)
+                        end
+                        NM.currentTab = "challenge"
                     end
                 else
                     tabContent.frame:Hide()

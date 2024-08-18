@@ -1,6 +1,4 @@
 NM = LibStub("AceAddon-3.0"):NewAddon("NexusManager", "AceConsole-3.0", "AceEvent-3.0")
-local LA = LibStub("AceAddon-3.0"):GetAddon("LootAppraiser");
-NM.LA = LA
 
 local AceDB = LibStub("AceDB-3.0")
 local log = true;

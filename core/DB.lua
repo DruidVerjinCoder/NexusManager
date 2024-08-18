@@ -52,28 +52,29 @@ function NM:DeleteTodo(todoKey)
             end
         end
     end
+    NM:reloadScrollFrameTable()
 end
 
 function NM:LoadMissingProfessionTodoToCharacter()
     local categories = NM:LoadCharacterCategories()
 
-    for _, category in pairs(categories) do
-        local profType = NM.professionalTypes[category]
-        for _, globalTodo in ipairs(NM.db.global.profession[profType]) do
-            local currentProfessionalTodos = NM.db.global.characters[NM.guid].todos.professions[profType]
-            local duplicate = false;
-            for _, playerProfTodo in ipairs(currentProfessionalTodos) do
-                if (playerProfTodo.key == globalTodo.key) then
-                    duplicate = true
-                    break
-                end
-            end
+    -- for _, category in pairs(categories) do
+    --     local profType = NM.professionalTypes[category]
+    --     for _, globalTodo in ipairs(NM.db.global.profession[profType]) do
+    --         local currentProfessionalTodos = NM.db.global.characters[NM.guid].todos.professions[profType]
+    --         local duplicate = false;
+    --         for _, playerProfTodo in ipairs(currentProfessionalTodos) do
+    --             if (playerProfTodo.key == globalTodo.key) then
+    --                 duplicate = true
+    --                 break
+    --             end
+    --         end
 
-            if not duplicate then
-                table.insert(NM.db.global.characters[NM.guid].todos.professions[profType], globalTodo)
-            end
-        end
-    end
+    --         if not duplicate then
+    --             table.insert(NM.db.global.characters[NM.guid].todos.professions[profType], globalTodo)
+    --         end
+    --     end
+    -- end
 end
 
 function NM:LoadCharacterCategories()
@@ -114,9 +115,9 @@ function NM:GetPersonalTodos()
 
     for _, profession in ipairs(NM:LoadCharacterCategories()) do
         local professionTodoList = NM.db.global.characters[NM.guid].todos.professions[NM.professionalTypes[profession]]
-        for _, profTodo in ipairs(professionTodoList) do
-            table.insert(todos, profTodo)
-        end
+        -- for _, profTodo in ipairs(professionTodoList) do
+        --     table.insert(todos, profTodo)
+        -- end
     end
 
     NM:Print("Found " .. #todos .. " for the current character")

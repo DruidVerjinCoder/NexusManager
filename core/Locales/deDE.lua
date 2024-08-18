@@ -51,13 +51,16 @@ L["Epic: "] = "Episch: "
 L["Gold looted: "] = "Gold gelooted: "
 L["Gold totel: "] = "Gold gesamt: "
 L["Annotation: "] = "Anmerkung: "
-L["Runs: "]="Runs: "
-L["Difficulty: "]="Modus: "
+L["Runs: "] = "Runs: "
+L["Difficulty: "] = "Modus: "
 
 -- Postrun Container Tooltips
-L["Reset the current farm session"]="Setze die aktuelle Farm-Session zurück"
-L["Start the farm session"]="Starte eine neue Farm-Session"
-L["Continue the farm session"]="Setze die Farm-Session fort"
+L["Reset the current farm session"] = "Setze die aktuelle Farm-Session zurück"
+L["Start the farm session"] = "Starte eine neue Farm-Session"
+L["Continue the farm session"] = "Setze die Farm-Session fort"
 
-L["Pause the current farm session"]="Pausiere die aktuelle laufende Session"
-L["Continue the current farm session"]="Setze die aktuelle laufende Session fort"
+L["Pause the current farm session"] = "Pausiere die aktuelle laufende Session"
+L["Continue the current farm session"] = "Setze die aktuelle laufende Session fort"
+
+-- Menu Points
+L["Send request to join"] = "Sende Anfrage zum Beitreten"

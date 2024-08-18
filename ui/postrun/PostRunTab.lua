@@ -22,23 +22,12 @@ function postrun:Create()
     multiLineEditBox:SetNumLines(14)
 
     NM.ui.postrun:SetUserData("postrunBox", multiLineEditBox)
-    
+
     NM.ui.postrun:AddChild(multiLineEditBox)
     NM.ui.postrun.output = multiLineEditBox;
 
-    ---- Aktionen
-    local sessionActions = AceGUI:Create("ScrollFrame")
-    sessionActions:SetLayout("Table")
-    sessionActions:SetUserData("table", {
-        columns = { 75, 75, 150 },
-        align = "CENTER"
-    })
-    sessionActions:SetFullWidth(true)
-    sessionActions:SetHeight(60)
-    if sessionActions.frame.GetBackdrop then
-        sessionActions.frame:SetBackdrop(nil);
-    end
-
+    local sessionActions = AceGUI:Create("SimpleGroup")
+    sessionActions:SetLayout("Flow")
     -- Aktionen
     local sessionInteractionIcon = NM.UIFunctions:createInteractiveImage(
         "Interface\\AddOns\\NexusManager\\Media\\icons\\play", 25,
@@ -93,7 +82,6 @@ function postrun:acceptSessionButtonClick(button)
             NM.session:pause()
             self:SetImage("Interface\\AddOns\\NexusManager\\Media\\icons\\play")
         end
-
     end)
 end
 

@@ -14,12 +14,16 @@ local PATTERN_LOOT_ITEM_SELF_MULTIPLE = LOOT_ITEM_SELF_MULTIPLE:gsub("%%s", "(.+
 
 
 local session = {
+    start = time(),
     currentGold = GetMoney(),
     totalGold = 0,
     lootedGold = 0,
     location = nil,
     class = L[select(1, UnitClass("player"))],
     state = nil,
+    pauseStart = nil,
+    sessionPause = nil,
+    liv = 0
 }
 
 function session:init()
@@ -62,7 +66,7 @@ function session:itemLooted(event, msg)
         else
             return
         end
-        local itemID = NM.LA.Util.ToItemID(itemLink)
+        local itemID = NM.Util.ToItemID(itemLink)
         session:addItem(itemID, quantity)
     end
 end
@@ -87,14 +91,14 @@ function session:GetPostrunMsg()
     if session.state then
         local liv, lootedCurrency = 0, 0
 
-        if NM.LA.Session.IsRunning() then
-            liv = NM.LA.Session.GetCurrentSession("liv")
-            lootedCurrency = NM.LA.Session.GetCurrentSession("totalLootedCurrency")
+        if session.state.running then
+            liv = session.liv
+            lootedCurrency = session.lootedGold
         end
 
         local msg = "!postrun " .. session.farmName .. "\n" ..
             L["Class: "] .. L[session.class] .. "\n" ..
-            L["Duration: "] .. session:GetDurationString(NM.LA.Session.GetCurrentSession("start")) .. "\n" ..
+            L["Duration: "] .. session:GetDurationString(session.start) .. "\n" ..
             L["LIV: "] .. session:FormatGold(liv) .. "\n" ..
             L["Uncommon: "] .. "\n" ..
             L["Rare: "] .. "\n" ..
@@ -111,32 +115,28 @@ end
 
 function session:start()
     NM.session:init()
-    NM.LA.Session.Start(true);
     NM.session.state = 'running'
     NM:Print(L["Session was started"])
 end
 
 function session:continue()
-    NM.LA.Session.Restart();
     NM.session.state = 'running'
 end
 
 function session:restart()
-    NM.LA.Session.New();
     NM.session:init()
     NM.session.state = 'running'
     NM:Print(L["Session was restarted"])
 end
 
 function session:pause()
-    NM.LA.Session.Pause();
     NM.session.state = 'paused'
     NM:Print(L["Session was paused"])
 end
 
 function session:GetDurationString(deltaTime)
-    local offset = NM.LA.Session.GetPauseStart() or time()
-    local duration = offset - deltaTime - NM.LA.Session.GetSessionPause()
+    local offset = NM.session.pauseStart or time()
+    local duration = offset - deltaTime - session.sessionPause
     local hours, minutes, seconds = session:CalculateTime(duration)
     return string.format("%02d:%02d:%02d", hours, minutes, seconds)
 end
