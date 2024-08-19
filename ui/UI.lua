@@ -155,14 +155,14 @@ function NM:CreateMainFrame()
 
         for i = 1, #tabNames do
             print("Create Container for " .. tabNames[i])
-            local container = AceGUI:Create("SimpleGroup")
-            container:SetLayout("Fill")
-            container:SetHeight(200);
-            container:SetWidth(200);
-            container.frame:SetParent(mainFrame)
-            container.frame:SetAllPoints(mainFrame)
-            container.frame:Hide()
-            tabContainers[i] = container
+            local tabContainer = AceGUI:Create("SimpleGroup")
+            tabContainer:SetLayout("Fill")
+            tabContainer:SetHeight(200);
+            tabContainer:SetWidth(200);
+            tabContainer.frame:SetParent(mainFrame)
+            tabContainer.frame:SetAllPoints(mainFrame)
+            tabContainer.frame:Hide()
+            tabContainers[i] = tabContainer
         end
 
         local todosContainer = tabContainers[1]

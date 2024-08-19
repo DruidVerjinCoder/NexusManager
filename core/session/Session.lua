@@ -23,7 +23,10 @@ local session = {
     state = nil,
     pauseStart = nil,
     sessionPause = nil,
-    liv = 0
+    liv = 0,
+    uncommon = 0,
+    rare = 0,
+    epic = 0
 }
 
 function session:init()
@@ -31,9 +34,13 @@ function session:init()
 end
 
 function session:reset()
+    session.start = time()
     session.currentGold = GetMoney()
     session.totalGold = 0
     session.lootedGold = 0
+    session.uncommon = 0
+    session.rare = 0
+    session.epic = 0
     session.instance = nil
 
     if IsInInstance then
@@ -66,7 +73,7 @@ function session:itemLooted(event, msg)
         else
             return
         end
-        local itemID = NM.Util.ToItemID(itemLink)
+        local itemID = session:ToItemID(itemLink)
         session:addItem(itemID, quantity)
     end
 end
@@ -81,30 +88,23 @@ function session:zoneSwitched(self, event)
 end
 
 function session:addItem(itemID, quantity)
-    local itemName, itemLink, itemQuality, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount, itemEquipLoc,
-    itemTexture, sellPrice, classID,
-    subclassID, bindType, expacID, setID, isCraftingReagent = C_Item.GetItemInfo(itemID)
-    session:PrintItem(itemID);
+    -- session:PrintItem(itemID);
+    local saleAvgPrice = NM.TSM.GetItemValue(itemID, "DBRegionSaleAvg")
+    print("Got an avg price => " .. tostring(saleAvgPrice))
+    session.liv = session.liv + (saleAvgPrice * quantity)
 end
 
 function session:GetPostrunMsg()
     if session.state then
-        local liv, lootedCurrency = 0, 0
-
-        if session.state.running then
-            liv = session.liv
-            lootedCurrency = session.lootedGold
-        end
-
         local msg = "!postrun " .. session.farmName .. "\n" ..
             L["Class: "] .. L[session.class] .. "\n" ..
             L["Duration: "] .. session:GetDurationString(session.start) .. "\n" ..
-            L["LIV: "] .. session:FormatGold(liv) .. "\n" ..
-            L["Uncommon: "] .. "\n" ..
-            L["Rare: "] .. "\n" ..
-            L["Epic: "] .. "\n" ..
-            L["Gold looted: "] .. session:FormatGold(lootedCurrency) .. "\n" ..
-            L["Gold total: "] .. "\n" ..
+            L["LIV: "] .. session:FormatGold(session.liv) .. "\n" ..
+            L["Uncommon: "] .. tostring(session.uncommon) .. "\n" ..
+            L["Rare: "] .. tostring(session.rare) .. "\n" ..
+            L["Epic: "] .. tostring(session.epic) .. "\n" ..
+            L["Gold looted: "] .. session:FormatGold(session.lootedGold) .. "\n" ..
+            L["Gold total: "] .. session:FormatGold(session.totalGold) .. "\n" ..
             L["Annotation: "] .. "-"
         ;
         return msg;
@@ -136,7 +136,7 @@ end
 
 function session:GetDurationString(deltaTime)
     local offset = NM.session.pauseStart or time()
-    local duration = offset - deltaTime - session.sessionPause
+    local duration = offset - (deltaTime or time()) - (session.sessionPause or 0)
     local hours, minutes, seconds = session:CalculateTime(duration)
     return string.format("%02d:%02d:%02d", hours, minutes, seconds)
 end
@@ -195,7 +195,25 @@ function session:PrintItem(itemID)
         NM:Print("  Set ID: " .. setID)
     end
     NM:Print("  Crafting Reagent: " .. (isCraftingReagent and "Yes" or "No"))
-    NM:print("======================")
+    NM:Print("======================")
+end
+
+function session:ToItemID(itemString)
+    if not itemString then
+        return
+    end
+
+    --local printable = gsub(itemString, "\124", "\124\124");
+    --ChatFrame1:AddMessage("Here's what it really looks like: \"" .. printable .. "\"");
+
+    --local itemId = LA.TSM.GetItemID(itemString)
+
+    local _, _, Color, Ltype, Id, Enchant, Gem1, Gem2, Gem3, Gem4, Suffix, Unique, LinkLvl, reforging, Name = string
+        .find(itemString,
+            "|?c?f?f?(%x*)|?H?([^:]*):?(%d+):?(%d*):?(%d*):?(%d*):?(%d*):?(%d*):?(%-?%d*):?(%-?%d*):?(%d*):?(%d*)|?h?%[?([^%[%]]*)%]?|?h?|?r?")
+
+    --ChatFrame1:AddMessage("Id: " .. Id .. " vs. " .. itemId);
+    return tonumber(Id)
 end
 
 NM.session = session;

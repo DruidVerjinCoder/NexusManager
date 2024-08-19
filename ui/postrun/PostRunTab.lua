@@ -30,18 +30,22 @@ function postrun:Create()
     sessionActions:SetLayout("Flow")
     -- Aktionen
     local sessionInteractionIcon = NM.UIFunctions:createInteractiveImage(
-        "Interface\\AddOns\\NexusManager\\Media\\icons\\play", 25,
+        "Interface\\AddOns\\NexusManager\\assets\\icons\\play", 25,
         L["Start the farm session"])
+    sessionInteractionIcon:SetWidth(60)
     postrun:acceptSessionButtonClick(sessionInteractionIcon)
     postrun:updateGameTooltipByState(sessionInteractionIcon)
     sessionActions:AddChild(sessionInteractionIcon)
 
-    local reload = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\Media\\icons\\reset1", 25,
+    local reload = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\assets\\icons\\reset1", 25,
         L["Reset the current farm session"])
+    reload:SetWidth(30)
     reload:SetCallback("OnClick", function()
         NM.session:restart()
     end);
     sessionActions:AddChild(reload)
+    local resetInstance = NM.UIFunctions:createButton(L["Reset instance"], 150, function() print("Reset Instance") end);
+    sessionActions:AddChild(resetInstance)
 
     NM.ui.postrun:AddChild(sessionActions)
 
@@ -53,8 +57,8 @@ function postrun:updateGameTooltipByState(interactionLabel, notStartedState, con
         GameTooltip:ClearLines()
         GameTooltip:SetOwner(self.frame, "ANCHOR_CURSOR")
 
-        local isSessionRunning = NM.LA.Session.IsRunning()
-        local isSessionPaused = NM.LA.Session.IsPaused();
+        local isSessionRunning = NM.session.state == "running"
+        local isSessionPaused = NM.session.state == "paused";
 
         if not isSessionRunning then
             GameTooltip:AddLine(L["Start the farm session"])
@@ -69,8 +73,8 @@ end
 
 function postrun:acceptSessionButtonClick(button)
     button:SetCallback("OnClick", function(self)
-        local isSessionRunning = NM.LA.Session.IsRunning()
-        local isSessionPaused = NM.LA.Session.IsPaused();
+        local isSessionRunning = NM.session.state == "running"
+        local isSessionPaused = NM.session.state == "paused";
 
         if not isSessionRunning then
             NM.session:start()

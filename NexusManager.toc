@@ -10,14 +10,14 @@ external.xml
 
 core/Initialization.lua
 core/session/Session.lua
+core/tsm/NM_TSM.lua
+core/tsm/PetData.lua
 core/DB.lua
-core/util/utils.lua
 
 ui/UI.lua
 ui/UIFunctions.lua
 ui/challenge/ChallengeTab.lua
 ui/challenge/ChallengeTab.xml
-ui/widgets.xml
 ui/todo/AddTodoFrame.lua
 ui/postrun/PostRunTab.lua
 locales.xml

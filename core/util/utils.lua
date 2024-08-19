@@ -1,8 +1,8 @@
 local NM = select(2,...)
-Util = {}
+local Util = {}
 
 -- based on Item:ToItemID from TSM 3/4
-function Util.ToItemID(itemString)
+function NM.Util:ToItemID(itemString)
     if not itemString then
         return
     end
