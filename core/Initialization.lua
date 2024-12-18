@@ -106,6 +106,16 @@ function NM:UpdateDB()
         print("Initialize professional table")
         self.db.global.profession = self:GetProfessionTable()
     end
+
+    if not self.db.profile then 
+        self.db.profile = {
+            general = {
+                minimap = {
+                    
+                }
+            }
+        }
+    end
 end
 
 function NM:CreateUniqueKeyForTodo(title)

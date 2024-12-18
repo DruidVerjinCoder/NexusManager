@@ -21,3 +21,5 @@ ui/challenge/ChallengeTab.xml
 ui/todo/AddTodoFrame.lua
 ui/postrun/PostRunTab.lua
 locales.xml
+
+core/Minimap.lua
