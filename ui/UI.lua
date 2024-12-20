@@ -25,7 +25,7 @@ function NM:reloadScrollFrameTable()
     NM.ui.todo.container:AddChild(NM.UIFunctions:createLabel("", 30))
     NM.ui.todo.container:AddChild(NM.UIFunctions:createLabel("", 30))
 
-    for _, todo in pairs(NM:GetPersonalTodos()) do
+    for _, todo in pairs(NM.DB:GetPersonalTodos()) do
         local chkBox = NM.UIFunctions:createCheckBox(todo.title, todo.complete,
             function(self) NM:CheckTodo(todo.key, todo.type, self:GetValue()) end)
         chkBox:SetWidth(250)
@@ -75,7 +75,7 @@ function NM:InitializeTodoTabContainer()
     local addIcon = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\assets\\icons\\plus", 25,
         "Neues Todo anlegen")
     addIcon:SetCallback("OnClick", function()
-        NM.createTodo:Create();
+        NM.AddTodoFrame:Create();
     end);
     buttonContainer:AddChild(addIcon)
 
