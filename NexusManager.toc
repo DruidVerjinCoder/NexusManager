@@ -13,6 +13,7 @@ core/session/Session.lua
 core/tsm/NM_TSM.lua
 core/tsm/PetData.lua
 core/DB.lua
+core/Options.lua
 
 ui/UI.lua
 ui/UIFunctions.lua
@@ -20,6 +21,7 @@ ui/challenge/ChallengeTab.lua
 ui/challenge/ChallengeTab.xml
 ui/todo/AddTodoFrame.lua
 ui/postrun/PostRunTab.lua
+ui/items/ItemsContainer.lua
 locales.xml
 
 core/Minimap.lua

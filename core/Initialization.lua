@@ -9,7 +9,7 @@ local PROFESSIONS = {
     "archeology", "herbalism", "engineering", "leatherworking", "cooking"
 }
 
-local DEBUG = false
+local DEBUG = true
 
 -- Initialize localization system
 NM.Locale = L
@@ -52,18 +52,25 @@ end
 -- Database initialization and management
 function NM:InitializeCharacter()
     local guid = UnitGUID("player")
+    if not guid then
+        self:Log("Error: Could not get player GUID")
+        return nil
+    end
     
     if not self.db.global.characters[guid] then
+        local className = select(2, GetPlayerInfoByGUID(guid))
         self.db.global.characters[guid] = {
             id = guid,
-            class = GetPlayerInfoByGUID(guid),
-            name = UnitName("player"),
-            realm = GetRealmName(),
+            class = className,
+            name = UnitName("player") or "Unknown",
+            realm = GetRealmName() or "Unknown",
             todos = {
                 general = {},
                 professions = self:GetProfessionTable()
-            }
+            },
+            lastUpdate = time()
         }
+        self:Log("New character initialized: " .. (UnitName("player") or "Unknown"))
     end
     
     return guid
@@ -90,21 +97,32 @@ end
 
 function NM:OnInitialize()
     self.db = AceDB:New("NexusManagerDB")
-end
-
-function NM:OnEnable()
     self:InitializeDB()
     self.guid = self:InitializeCharacter()
     
     self:RegisterChatCommand("nm", "OpenNexusManager")
-    self:ResetCompletedTodos()
-    self:LoadMissingProfessionTodoToCharacter()
     
-    -- Register events
-    self:RegisterEvent("CHAT_MSG_LOOT", self.session.itemLooted)
-    self:RegisterEvent("CHAT_MSG_MONEY", self.session.moneyLooted)
-    self:RegisterEvent("UPDATE_INSTANCE_INFO", self.session.zoneSwitched)
-    self:RegisterEvent("PLAYER_MONEY", self.session.moneyChanged)
+    -- Register events mit korrekter Methodenbindung
+    self:RegisterEvent("CHAT_MSG_LOOT", function(...)
+        if NM.session then
+            NM.session:itemLooted(...)
+        end
+    end)
+    self:RegisterEvent("CHAT_MSG_MONEY", function(...)
+        if NM.session then
+            NM.session:moneyLooted(...)
+        end
+    end)
+    self:RegisterEvent("UPDATE_INSTANCE_INFO", function(...)
+        if NM.session then
+            NM.session:zoneSwitched(...)
+        end
+    end)
+    self:RegisterEvent("PLAYER_MONEY", function(...)
+        if NM.session then
+            NM.session:moneyChanged(...)
+        end
+    end)
 end
 
 function NM:OpenNexusManager(input)

@@ -52,6 +52,14 @@ end
 -- Public methods
 function PostRunTab:Create()
     NM.ui.postrun = AceGUI:Create("SimpleGroup")
+    NM.ui.postrun:SetLayout("Flow")
+    
+    -- Add top padding container
+    local paddingContainer = AceGUI:Create("SimpleGroup")
+    paddingContainer:SetLayout("Flow")
+    paddingContainer:SetFullWidth(true)
+    paddingContainer:SetHeight(10) -- Padding von 10 Pixeln
+    NM.ui.postrun:AddChild(paddingContainer)
     
     -- Farm Name Input
     local farmName = createFarmNameInput()

@@ -26,7 +26,8 @@ local session = {
     liv = 0,
     uncommon = 0,
     rare = 0,
-    epic = 0
+    epic = 0,
+    items = {}
 }
 
 function session:init()
@@ -42,6 +43,7 @@ function session:reset()
     session.rare = 0
     session.epic = 0
     session.instance = nil
+    session.items = {}
 
     if IsInInstance then
         local instanceInfo = GetInstanceInfo()
@@ -61,20 +63,36 @@ function session:reset()
     session.state = nil
 end
 
-function session:itemLooted(event, msg)
-    if event then
-        local itemLink, quantity = 0, 0
-        -- local itemLink =
-        if event:match(PATTERN_LOOT_ITEM_SELF_MULTIPLE) then
-            itemLink, quantity = string.match(event, PATTERN_LOOT_ITEM_SELF_MULTIPLE)
-        elseif event:match(PATTERN_LOOT_ITEM_SELF) then
-            itemLink = string.match(event, PATTERN_LOOT_ITEM_SELF)
-            quantity = 1
-        else
-            return
-        end
-        local itemID = session:ToItemID(itemLink)
-        session:addItem(itemID, quantity)
+function session:itemLooted(event, message)
+    if self.state ~= "running" then return end
+    
+    local itemLink, quantity
+    
+    -- Prüfe auf Mehrfach-Drops
+    local item, count = message:match(PATTERN_LOOT_ITEM_SELF_MULTIPLE)
+    if item and count then
+        itemLink = item
+        quantity = tonumber(count)
+    else
+        -- Prüfe auf Einzel-Drops
+        itemLink = message:match(PATTERN_LOOT_ITEM_SELF)
+        quantity = 1
+    end
+    
+    -- Wenn kein Item gefunden wurde, beende
+    if not itemLink then return end
+    
+    -- Hole ItemID und füge es hinzu
+    local itemID = self:ToItemID(itemLink)
+    if not itemID then return end
+    
+    -- Füge Item zur Session hinzu
+    self:addItem(itemID, quantity)
+    NM:Log(string.format("Looted: %s x%d", itemLink, quantity))
+    
+    -- Aktualisiere UI
+    if NM.ItemsContainer then
+        NM.ItemsContainer:Update()
     end
 end
 
@@ -88,10 +106,31 @@ function session:zoneSwitched(self, event)
 end
 
 function session:addItem(itemID, quantity)
-    -- session:PrintItem(itemID);
-    local saleAvgPrice = NM.TSM.GetItemValue(itemID, "DBRegionSaleAvg")
-    print("Got an avg price => " .. tostring(saleAvgPrice))
-    session.liv = session.liv + (saleAvgPrice * quantity)
+    -- Initialisiere Item-Eintrag falls nicht vorhanden
+    if not self.items[itemID] then
+        self.items[itemID] = {
+            quantity = 0,
+            value = NM.TSM.GetItemValue(itemID, "DBRegionSaleAvg") or 0
+        }
+    end
+    
+    -- Aktualisiere Quantity
+    self.items[itemID].quantity = self.items[itemID].quantity + quantity
+    
+    -- Aktualisiere LIV
+    self.liv = self.liv + (self.items[itemID].value * quantity)
+    
+    -- Aktualisiere Qualitäts-Counter
+    local _, _, quality =  C_Item.GetItemInfo(itemID)
+    if quality then
+        if quality == 2 then
+            self.uncommon = self.uncommon + quantity
+        elseif quality == 3 then
+            self.rare = self.rare + quantity
+        elseif quality == 4 then
+            self.epic = self.epic + quantity
+        end
+    end
 end
 
 function session:GetPostrunMsg()
@@ -214,6 +253,30 @@ function session:ToItemID(itemString)
 
     --ChatFrame1:AddMessage("Id: " .. Id .. " vs. " .. itemId);
     return tonumber(Id)
+end
+
+function session:GetItems()
+    print("GetItems for Table")
+    local itemsList = {}
+    
+    -- Konvertiere die Items in das erwartete Format
+    for itemID, itemData in pairs(self.items) do
+        local itemName, itemLink, itemQuality, _, _, _, _, _, _, itemIcon = C_Item.GetItemInfo(itemID)
+        
+        -- Nur hinzufügen wenn Item-Info verfügbar
+        if itemName then
+            table.insert(itemsList, {
+                id = itemID,
+                name = itemName,
+                link = itemLink,
+                icon = itemIcon,
+                quality = itemQuality,
+                quantity = itemData.quantity or 0,
+                value = itemData.value or 0
+            })
+        end
+    end
+    return itemsList
 end
 
 NM.session = session;

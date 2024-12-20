@@ -1,5 +1,6 @@
 local NM = LibStub("AceAddon-3.0"):GetAddon("NexusManager")
 local AceGUI = LibStub("AceGUI-3.0")
+local L = NM.Locale
 
 NM.UIFunctions = {}
 
@@ -97,6 +98,32 @@ function NM.UIFunctions:createButtonGroup(tableConfig)
     buttonGroup:SetHeight(60)
 
     return buttonGroup
+end
+
+-- Formatiert einen Goldwert in ein lesbares Format
+-- @param value number Der zu formatierende Wert
+-- @return string Der formatierte Goldwert (z.B. "1g 23s 45c" oder "1,2345")
+function NM.UIFunctions:FormatGold(value)
+    if not value or value == 0 then
+        return "0g"
+    end
+
+    local gold = math.floor(value / 10000)
+    local silver = math.floor((value / 100) % 100)
+    local copper = value % 100
+
+    local result = ""
+    if gold > 0 then
+        result = gold .. "g "
+    end
+    if silver > 0 or gold > 0 then
+        result = result .. silver .. "s "
+    end
+    if copper > 0 or (gold == 0 and silver == 0) then
+        result = result .. copper .. "c"
+    end
+
+    return result:trim()
 end
 
 

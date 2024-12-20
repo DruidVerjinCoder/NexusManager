@@ -18,10 +18,28 @@ NM.ui = {
     }
 }
 
+function NM:DeleteTodo(todoKey)
+    if not todoKey then
+        NM:Log("Error: No todo key provided for deletion")
+        return false
+    end
+
+    local success = NM.DB:DeleteTodo(todoKey)
+    
+    if success then
+        NM:Print(L["Todo deleted"])
+        self:reloadScrollFrameTable()
+    else
+        NM:Print(L["Failed to delete todo"])
+    end
+    
+    return success
+end
+
 function NM:reloadScrollFrameTable()
     NM.ui.todo.container:ReleaseChildren()
 
-    NM.ui.todo.container:AddChild(NM.UIFunctions:createLabel("To-Do", 200))
+    NM.ui.todo.container:AddChild(NM.UIFunctions:createLabel(L["To-Do"], 200))
     NM.ui.todo.container:AddChild(NM.UIFunctions:createLabel("", 30))
     NM.ui.todo.container:AddChild(NM.UIFunctions:createLabel("", 30))
 
@@ -35,21 +53,25 @@ function NM:reloadScrollFrameTable()
         end
 
         chkBox:SetDescription(todo.description)
-
         NM.ui.todo.container:AddChild(chkBox)
 
-        local edit = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\assets\\icons\\setting", 20,
-            "Todo-Bearbeiten")
+        local edit = NM.UIFunctions:createInteractiveImage(
+            "Interface\\AddOns\\NexusManager\\assets\\icons\\setting",
+            20,
+            L["Edit Todo"]
+        )
 
-        local delete = NM.UIFunctions:createInteractiveImage("Interface\\AddOns\\NexusManager\\assets\\icons\\trash", 20,
-            "Todo Löschen")
+        local delete = NM.UIFunctions:createInteractiveImage(
+            "Interface\\AddOns\\NexusManager\\assets\\icons\\trash",
+            20,
+            L["Delete Todo"]
+        )
         delete:SetCallback("OnClick", function()
             NM:DeleteTodo(todo.key)
-            NM:reloadScrollFrameTable()
         end)
 
-        NM.ui.todo.container:AddChild(edit);
-        NM.ui.todo.container:AddChild(delete);
+        NM.ui.todo.container:AddChild(edit)
+        NM.ui.todo.container:AddChild(delete)
     end
 end
 
@@ -180,12 +202,19 @@ function NM:CreateMainFrame()
                         todosContainer:AddChild(NM:InitializeTodoTabContainer())
                         NM.currentTab = "todo"
                     elseif j == 2 then
-                        tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -30)
+                        tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 15, -50)
                         if not NM.ui.postrun then
                             NM.postrun:Create()
                             postrunContainer:AddChild(NM.ui.postrun)
                         end
-                        NM.currentTab = "postrun"
+                        NM.currentTab = "postrun" 
+                    elseif j == 3 then
+                        tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 15, -50)
+                        if not NM.ui.items then
+                            NM.ui.items = NM.ItemsContainer:Create()
+                            itemContainer:AddChild(NM.ui.items)
+                        end 
+                        NM.currentTab = "items"
                     elseif j == 4 then
                         tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -50)
                         if not NM.ui.challenge then
