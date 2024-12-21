@@ -37,13 +37,26 @@ function NM:DeleteTodo(todoKey)
 end
 
 function NM:reloadScrollFrameTable()
+    if not NM.ui.todo.container then return end
+    
+    -- Clear existing content
     NM.ui.todo.container:ReleaseChildren()
-
-    NM.ui.todo.container:AddChild(NM.UIFunctions:createLabel(L["To-Do"], 200))
-    NM.ui.todo.container:AddChild(NM.UIFunctions:createLabel("", 30))
-    NM.ui.todo.container:AddChild(NM.UIFunctions:createLabel("", 30))
-
-    for _, todo in pairs(NM.DB:GetPersonalTodos()) do
+    
+    -- Get all todos
+    local todos = NM.DB:GetTodos()
+    
+    -- Sort todos (optional)
+    table.sort(todos, function(a, b)
+        if a.frequency ~= b.frequency then
+            -- Sortiere nach Frequenz: daily > weekly > once
+            local order = {daily = 1, weekly = 2, once = 3}
+            return order[a.frequency] < order[b.frequency]
+        end
+        return a.title < b.title
+    end)
+    
+    -- Add todos to container
+    for _, todo in ipairs(todos) do
         local chkBox = NM.UIFunctions:createCheckBox(todo.title, todo.complete,
             function(self) NM:CheckTodo(todo.key, todo.type, self:GetValue()) end)
         chkBox:SetWidth(250)
@@ -53,6 +66,56 @@ function NM:reloadScrollFrameTable()
         end
 
         chkBox:SetDescription(todo.description)
+        
+        -- Add reset time tooltip
+        chkBox:SetCallback("OnEnter", function()
+            GameTooltip:SetOwner(chkBox.frame, "ANCHOR_RIGHT")
+            GameTooltip:SetText(todo.title)
+            
+            if todo.description and todo.description ~= "" then
+                GameTooltip:AddLine(todo.description, 1, 1, 1, true)
+            end
+            
+            -- Add reset time
+            if todo.frequency == "daily" then
+                local resetIn = GetQuestResetTime()
+                local hours = math.floor(resetIn / 3600)
+                local minutes = math.floor((resetIn % 3600) / 60)
+                GameTooltip:AddLine(string.format(L["Resets in: %d hours and %d minutes"], hours, minutes), 0.8, 0.8, 0.8)
+            elseif todo.frequency == "weekly" then
+                local resetIn
+                -- Versuche verschiedene Methoden für den Weekly Reset
+                if C_WeeklyRewards and C_WeeklyRewards.GetNextWeeklyRewardReset then
+                    resetIn = C_WeeklyRewards.GetNextWeeklyRewardReset() - time()
+                elseif C_DateAndTime and C_DateAndTime.GetNextWeeklyResetTime then
+                    resetIn = C_DateAndTime.GetNextWeeklyResetTime() - time()
+                else
+                    local questReset = GetQuestResetTime()
+                    if questReset < (3 * 86400) then
+                        resetIn = questReset + (4 * 86400)
+                    else
+                        resetIn = questReset
+                    end
+                end
+                
+                local days = math.floor(resetIn / 86400)
+                local hours = math.floor((resetIn % 86400) / 3600)
+                GameTooltip:AddLine(string.format(L["Resets in: %d days and %d hours"], days, hours), 0.8, 0.8, 0.8)
+            end
+            
+            -- Add key in gray (for debugging/admin purposes)
+            if todo.key then
+                GameTooltip:AddLine(" ")  -- Empty line as separator
+                GameTooltip:AddLine("ID: " .. todo.key, 0.7, 0.7, 0.7)
+            end
+            
+            GameTooltip:Show()
+        end)
+        
+        chkBox:SetCallback("OnLeave", function()
+            GameTooltip:Hide()
+        end)
+        
         NM.ui.todo.container:AddChild(chkBox)
 
         local edit = NM.UIFunctions:createInteractiveImage(
@@ -60,6 +123,16 @@ function NM:reloadScrollFrameTable()
             20,
             L["Edit Todo"]
         )
+        edit:SetCallback("OnClick", function()
+            -- Debug output for todo being edited
+            NM:Log("=== Starting Todo Edit ===")
+            NM:Log("Todo being edited:")
+            for k, v in pairs(todo) do
+                NM:Log("  " .. k .. ": " .. tostring(v))
+            end
+            
+            NM.AddTodoFrame:Create(todo)
+        end)
 
         local delete = NM.UIFunctions:createInteractiveImage(
             "Interface\\AddOns\\NexusManager\\assets\\icons\\trash",
@@ -67,12 +140,43 @@ function NM:reloadScrollFrameTable()
             L["Delete Todo"]
         )
         delete:SetCallback("OnClick", function()
-            NM:DeleteTodo(todo.key)
+            if todo.type == "profession" then
+                -- Show confirmation dialog for profession todos
+                StaticPopupDialogs["NEXUSMANAGER_CONFIRM_DELETE"] = {
+                    text = L["This will delete the todo for all characters with this profession. Are you sure?"],
+                    button1 = L["Yes"],
+                    button2 = L["No"],
+                    timeout = 0,
+                    whileDead = true,
+                    hideOnEscape = true,
+                    preferredIndex = 3,
+                    OnAccept = function()
+                        if NM.DB:DeleteTodo(todo.key, todo.type, todo.assignment) then
+                            NM:Print(L["Todo deleted"])
+                            NM:reloadScrollFrameTable()
+                        else
+                            NM:Print(L["Failed to delete todo"])
+                        end
+                    end,
+                }
+                StaticPopup_Show("NEXUSMANAGER_CONFIRM_DELETE")
+            else
+                -- Direct deletion for character todos
+                if NM.DB:DeleteTodo(todo.key, todo.type, todo.assignment) then
+                    NM:Print(L["Todo deleted"])
+                    NM:reloadScrollFrameTable()
+                else
+                    NM:Print(L["Failed to delete todo"])
+                end
+            end
         end)
 
         NM.ui.todo.container:AddChild(edit)
         NM.ui.todo.container:AddChild(delete)
     end
+    
+    -- Force UI update
+    NM.ui.todo.container:DoLayout()
 end
 
 function NM:InitializeTodoTabContainer()

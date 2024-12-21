@@ -139,9 +139,9 @@ function session:GetPostrunMsg()
             L["Class: "] .. L[session.class] .. "\n" ..
             L["Duration: "] .. session:GetDurationString(session.start) .. "\n" ..
             L["LIV: "] .. session:FormatGold(session.liv) .. "\n" ..
-            L["Uncommon: "] .. tostring(session.uncommon) .. "\n" ..
-            L["Rare: "] .. tostring(session.rare) .. "\n" ..
-            L["Epic: "] .. tostring(session.epic) .. "\n" ..
+            L["Uncommon: "] .. self:GetUncommonCount() .. "\n" ..
+            L["Rare: "] .. self:GetRareCount() .. "\n" ..
+            L["Epic: "] .. self:GetEpicCount() .. "\n" ..
             L["Gold looted: "] .. session:FormatGold(session.lootedGold) .. "\n" ..
             L["Gold total: "] .. session:FormatGold(session.totalGold) .. "\n" ..
             L["Annotation: "] .. "-"
@@ -203,9 +203,13 @@ function session:FormatGold(value)
 
     local pos = #goldValue - 4
     if pos < 0 then
+        -- Füge führende 0 hinzu, wenn der Wert kleiner als 1 Gold ist
         return "0," .. string.rep("0", -pos) .. goldValue
     else
-        return goldValue:sub(1, pos) .. "," .. goldValue:sub(pos + 1)
+        -- Füge Komma zwischen Gold und Silber ein
+        local gold = goldValue:sub(1, pos)
+        if gold == "" then gold = "0" end  -- Wenn kein Gold-Teil, dann "0" verwenden
+        return gold .. "," .. goldValue:sub(pos + 1)
     end
 end
 
@@ -277,6 +281,38 @@ function session:GetItems()
         end
     end
     return itemsList
+end
+
+--- Zählt Items nach Rarität
+--- @param rarity number Die Rarität (2=Uncommon, 3=Rare, 4=Epic)
+--- @return number Anzahl der Items mit der angegebenen Rarität
+function session:GetItemCountByRarity(rarity)
+    local count = 0
+    for itemID, itemData in pairs(self.items) do
+        local _, _, quality = C_Item.GetItemInfo(itemID)
+        if quality == rarity then
+            count = count + itemData.quantity
+        end
+    end
+    return count
+end
+
+--- Gibt die Anzahl aller Uncommon (grünen) Items zurück
+--- @return number Anzahl der Uncommon Items
+function session:GetUncommonCount()
+    return self:GetItemCountByRarity(2)
+end
+
+--- Gibt die Anzahl aller Rare (blauen) Items zurück
+--- @return number Anzahl der Rare Items
+function session:GetRareCount()
+    return self:GetItemCountByRarity(3)
+end
+
+--- Gibt die Anzahl aller Epic (lila) Items zurück
+--- @return number Anzahl der Epic Items
+function session:GetEpicCount()
+    return self:GetItemCountByRarity(4)
 end
 
 NM.session = session;

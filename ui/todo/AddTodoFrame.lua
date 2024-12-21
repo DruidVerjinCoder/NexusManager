@@ -25,14 +25,16 @@ local AddTodoFrame = {
             ["profession"] = L["Profession"],
             ["character"] = L["Character"]
         },
-        PROFESSIONS = NM.DB.PROFESSION_TYPES -- Nutze die zentrale Definition aus DB
+        PROFESSIONS = NM.DB.PROFESSION_TYPES
     },
     
     -- State management
     state = {
         isValid = false,
         currentType = nil,
-        formData = {}
+        formData = {},
+        editMode = false,
+        editKey = nil
     }
 }
 
@@ -42,25 +44,84 @@ local function validateTodoName(name)
 end
 
 local function clearFormData()
-    AddTodoFrame.state.formData = {
-        title = "",
-        description = "",
-        frequency = nil,
-        type = nil,
-        assignment = nil
+    local editMode = AddTodoFrame.state.editMode
+    local editKey = AddTodoFrame.state.editKey
+    
+    AddTodoFrame.state = {
+        isValid = false,
+        currentType = nil,
+        formData = {
+            title = "",
+            description = "",
+            frequency = "once",
+            type = "character",
+            assignment = ""
+        },
+        editMode = editMode,
+        editKey = editKey
     }
+    
+    NM:Log("clearFormData - Preserved Edit Key: " .. tostring(editKey))
 end
 
 -- Public methods
-function AddTodoFrame:Create()
+function AddTodoFrame:Create(todoToEdit)
     if self.window then
         self.window:Release()
     end
     
+    -- Debug output for incoming todo
+    if todoToEdit then
+        NM:Log("=== Creating Edit Form ===")
+        NM:Log("Todo to edit:")
+        for k, v in pairs(todoToEdit) do
+            NM:Log("  " .. k .. ": " .. tostring(v))
+        end
+    end
+    
+    -- Reset state and set edit mode if needed
     clearFormData()
+    self.state.editMode = todoToEdit ~= nil
+    self.state.editKey = todoToEdit and todoToEdit.key or nil
+    
+    NM:Log("Edit Mode: " .. tostring(self.state.editMode))
+    NM:Log("Edit Key: " .. tostring(self.state.editKey))
+    
+    -- Pre-fill form data if editing
+    if todoToEdit then
+        self.state.formData = {
+            key = todoToEdit.key,  -- Explicitly set the key in formData
+            title = todoToEdit.title or "",
+            description = todoToEdit.description or "",
+            frequency = todoToEdit.frequency or "once",
+            type = todoToEdit.type or "character",
+            assignment = todoToEdit.assignment or ""
+        }
+        self.state.currentType = todoToEdit.type
+    end
+    
     self.window = self:CreateWindow()
     self:CreateFormElements()
     self:SetupCallbacks()
+    
+    -- Update window title based on mode
+    self.window:SetTitle(self.state.editMode and L["Edit Todo"] or L["Add Todo"])
+    
+    -- Pre-fill form elements if editing
+    if todoToEdit then
+        self.nameBox:SetText(todoToEdit.title)
+        self.descBox:SetText(todoToEdit.description)
+        self.freqDropdown:SetValue(todoToEdit.frequency)
+        self.typeDropdown:SetValue(todoToEdit.type)
+        
+        -- Use C_Timer.After to ensure the type dropdown callback has completed
+        C_Timer.After(0.1, function()
+            if self.targetDropdown then
+                self:UpdateTargetDropdown(todoToEdit.type)
+                self.targetDropdown:SetValue(todoToEdit.assignment)
+            end
+        end)
+    end
     
     NM.ui.todo.add = self.window
     return self.window
@@ -160,23 +221,50 @@ function AddTodoFrame:CreateDropdown(label, options, callback)
     return dropdown
 end
 
-function AddTodoFrame:UpdateTargetDropdown(todoType)
+function AddTodoFrame:UpdateTargetDropdown(selectedType)
     local options = {}
-    local label = " "
     
-    if todoType == "profession" then
+    if selectedType == "profession" then
         options = self.DROPDOWN_OPTIONS.PROFESSIONS
-        label = L["Professions"]
-    elseif todoType == "character" then
-        options = self:LoadCharacterNames()
-        label = L["Character"]
+    elseif selectedType == "character" then
+        -- Get all characters from DB
+        if NM.db and NM.db.global and NM.db.global.characters then
+            for guid, charData in pairs(NM.db.global.characters) do
+                options[guid] = charData.name
+            end
+        end
+        
+        -- If no characters found, at least add current character
+        if not next(options) then
+            local currentChar = NM.DB:GetCurrentCharacter()
+            if currentChar then
+                options[currentChar.guid] = currentChar.name
+            end
+        end
     end
     
-    NM.UIFunctions:refreshDropdownOptions(
-        self.targetDropdown,
-        label,
-        options
-    )
+    self.targetDropdown:SetList(options)
+    
+    -- Debug output
+    NM:Log("UpdateTargetDropdown - Type: " .. tostring(selectedType))
+    NM:Log("EditMode: " .. tostring(self.state.editMode))
+    NM:Log("Current Assignment: " .. tostring(self.state.formData.assignment))
+    
+    -- If we're in edit mode and have an assignment, try to select it
+    if self.state.editMode and self.state.formData.assignment then
+        NM:Log("Setting dropdown value to: " .. tostring(self.state.formData.assignment))
+        self.targetDropdown:SetValue(self.state.formData.assignment)
+    else
+        -- Default selection for new todos
+        local firstKey = next(options)
+        if firstKey then
+            self.targetDropdown:SetValue(firstKey)
+            self.state.formData.assignment = firstKey
+        end
+    end
+    
+    -- Force layout update
+    self.targetDropdown:SetLabel(selectedType == "profession" and L["Profession"] or L["Character"])
 end
 
 function AddTodoFrame:UpdateValidation()
@@ -192,19 +280,56 @@ function AddTodoFrame:UpdateValidation()
 end
 
 function AddTodoFrame:SaveTodo()
-    if not self.state.isValid then return end
+    if not self.state.isValid then 
+        NM:Log("Form validation failed")
+        return 
+    end
+    
+    NM:Log("=== SaveTodo Debug Start ===")
+    NM:Log("Edit Mode: " .. tostring(self.state.editMode))
+    NM:Log("Edit Key: " .. tostring(self.state.editKey))
     
     self.saveButton:SetText(L["Saving..."])
     self.saveButton:SetDisabled(true)
     
-    local success = NM.DB:AddTodo(self.state.formData)
+    local success
+    if self.state.editMode and self.state.editKey then
+        -- Create a complete new todo object
+        local updatedTodo = {
+            key = self.state.editKey,
+            title = self.nameBox:GetText(),
+            description = self.descBox:GetText(),
+            frequency = self.freqDropdown:GetValue(),
+            type = self.typeDropdown:GetValue(),
+            assignment = self.targetDropdown:GetValue()
+        }
+        
+        -- Debug output for updatedTodo
+        NM:Log("Updated Todo contents:")
+        for k, v in pairs(updatedTodo) do
+            NM:Log("  " .. k .. ": " .. tostring(v))
+        end
+        
+        -- Ensure we have all required fields
+        if not updatedTodo.title or not updatedTodo.type or not updatedTodo.assignment then
+            NM:Log("Missing required fields in updatedTodo")
+            return false
+        end
+        
+        success = NM.DB:UpdateTodo(self.state.editKey, updatedTodo)
+    else
+        success = NM.DB:AddTodo(self.state.formData)
+    end
+    
+    NM:Log("Save operation success: " .. tostring(success))
+    NM:Log("=== SaveTodo Debug End ===")
     
     if success then
-        NM:Print(L["Added a new todo"])
+        NM:Print(self.state.editMode and L["Updated todo"] or L["Added a new todo"])
         NM:reloadScrollFrameTable()
         self:OnClose()
     else
-        NM:Print(L["Failed to add todo"])
+        NM:Print(self.state.editMode and L["Failed to update todo"] or L["Failed to add todo"])
         self.saveButton:SetText(L["Save"])
         self.saveButton:SetDisabled(false)
     end
@@ -274,3 +399,17 @@ function AddTodoFrame:LoadCharacterNames()
 end
 
 NM.AddTodoFrame = AddTodoFrame
+
+-- Hilfsfunktion für Debug-Ausgaben (fügen Sie diese am Anfang der Datei hinzu)
+if not NM.Utils then
+    NM.Utils = {}
+end
+
+NM.Utils.tableToString = function(tbl)
+    if type(tbl) ~= "table" then return tostring(tbl) end
+    local result = "{"
+    for k, v in pairs(tbl) do
+        result = result .. "[" .. tostring(k) .. "] = " .. tostring(v) .. ", "
+    end
+    return result .. "}"
+end

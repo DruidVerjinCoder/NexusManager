@@ -64,3 +64,16 @@ L["Continue the current farm session"] = "Setze die aktuelle laufende Session fo
 
 -- Menu Points
 L["Send request to join"] = "Sende Anfrage zum Beitreten"
+
+L["Resets in: %d hours and %d minutes"] = "Reset in: %d Stunden und %d Minuten"
+L["Resets in: %d days and %d hours"] = "Reset in: %d Tagen und %d Stunden"
+
+L["Edit Todo"] = "Todo bearbeiten"
+L["Updated todo"] = "Todo wurde aktualisiert"
+L["Failed to update todo"] = "Fehler beim Aktualisieren des Todos"
+
+L["This will delete the todo for all characters with this profession. Are you sure?"] = "Dies wird das Todo für alle Charaktere mit diesem Beruf löschen. Bist du sicher?"
+L["Yes"] = "Ja"
+L["No"] = "Nein"
+L["Todo deleted"] = "Todo gelöscht"
+L["Failed to delete todo"] = "Fehler beim Löschen des Todos"
