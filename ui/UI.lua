@@ -362,3 +362,17 @@ function NM:CreateMainFrame()
     end
     NM.mainFrame:Show()
 end
+
+local function createProfessionLabel(profession)
+    local label = NM.UIFunctions:createInteractiveLabel(profession)
+    label:SetCallback("OnClick", function()
+        if NM.DB and NM.DB.LoadMissingProfessionTodoToCharacter then
+            NM.DB:LoadMissingProfessionTodoToCharacter()
+        else
+            NM:Log("Error: DB or LoadMissingProfessionTodoToCharacter not available")
+        end
+        
+        -- Rest of your click handler code...
+    end)
+    return label
+end

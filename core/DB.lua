@@ -266,6 +266,21 @@ function DB:GetTodos()
     NM:Log("=== GetTodos Debug Start ===")
     NM:Log("Character: " .. char.name)
     
+    -- Get current professions first
+    local currentProfessions = {}
+    local prof1, prof2 = GetProfessions()
+    
+    if prof1 then
+        local name = self:NormalizeProfessionName(GetProfessionInfo(prof1))
+        if name then currentProfessions[name] = true end
+    end
+    if prof2 then
+        local name = self:NormalizeProfessionName(GetProfessionInfo(prof2))
+        if name then currentProfessions[name] = true end
+    end
+    
+    NM:Log("Current active professions: " .. NM.Utils.tableToString(currentProfessions))
+    
     -- Character todos
     if char.todos and char.todos.general then
         NM:Log("Loading character todos: " .. #char.todos.general)
@@ -274,71 +289,72 @@ function DB:GetTodos()
         end
     end
     
-    -- Profession todos
+    -- Profession todos - ONLY for current professions
     if char.todos and char.todos.professions then
         NM:Log("Checking profession todos")
         
-        -- Track processed todos to avoid duplicates
-        local processedKeys = {}
-        
-        -- First, check if we need to create local copies of global todos
-        for profName, globalTodos in pairs(NM.db.global.profession) do
-            local normalizedProf = self:NormalizeProfessionName(profName)
-            
-            -- Check if character has this profession
-            if char.todos.professions[normalizedProf] then
-                NM:Log("Checking profession: " .. normalizedProf)
-                
-                -- Create local copies of global todos if they don't exist
-                for _, globalTodo in ipairs(globalTodos) do
-                    local localKey = globalTodo.key .. "_" .. char.id
-                    
-                    -- Check if we already have a local copy
-                    local hasLocalCopy = false
-                    for _, localTodo in ipairs(char.todos.professions[normalizedProf]) do
-                        if localTodo.key == localKey then
-                            hasLocalCopy = true
-                            break
-                        end
-                    end
-                    
-                    -- Create local copy if it doesn't exist
-                    if not hasLocalCopy then
-                        NM:Log("Creating local copy for todo: " .. globalTodo.title)
-                        local todoCopy = {
-                            key = localKey,
-                            title = globalTodo.title,
-                            description = globalTodo.description,
-                            frequency = globalTodo.frequency,
-                            type = "profession",
-                            assignment = normalizedProf,
-                            complete = false,
-                            completedAt = nil
-                        }
-                        table.insert(char.todos.professions[normalizedProf], todoCopy)
-                    end
-                end
-            end
-        end
-        
-        -- Now load only the local profession todos
         for profName, profTodos in pairs(char.todos.professions) do
             local normalizedProf = self:NormalizeProfessionName(profName)
-            NM:Log("Loading todos for profession: " .. normalizedProf)
             
-            for _, todo in ipairs(profTodos) do
-                if not processedKeys[todo.key] then
-                    table.insert(todos, todo)
-                    processedKeys[todo.key] = true
-                    NM:Log("Added todo: " .. todo.title)
-                else
-                    NM:Log("Skipped duplicate todo: " .. todo.title)
+            -- Only process if character currently has this profession
+            if currentProfessions[normalizedProf] then
+                NM:Log("Loading todos for active profession: " .. normalizedProf)
+                
+                -- Check global todos for this profession
+                if NM.db.global.profession[normalizedProf] then
+                    -- Ensure local copies exist
+                    for _, globalTodo in ipairs(NM.db.global.profession[normalizedProf]) do
+                        local localKey = globalTodo.key .. "_" .. char.id
+                        
+                        -- Check if we already have this todo
+                        local hasLocalCopy = false
+                        for _, localTodo in ipairs(profTodos) do
+                            if localTodo.key == localKey then
+                                hasLocalCopy = true
+                                break
+                            end
+                        end
+                        
+                        -- Create local copy if needed
+                        if not hasLocalCopy then
+                            local todoCopy = {
+                                key = localKey,
+                                title = globalTodo.title,
+                                description = globalTodo.description,
+                                frequency = globalTodo.frequency,
+                                type = "profession",
+                                assignment = normalizedProf,
+                                complete = false,
+                                completedAt = nil
+                            }
+                            table.insert(profTodos, todoCopy)
+                        end
+                    end
                 end
+                
+                -- Add all local todos for this profession
+                for _, todo in ipairs(profTodos) do
+                    table.insert(todos, todo)
+                end
+            else
+                NM:Log("Skipping todos for inactive profession: " .. normalizedProf)
+                -- Optionally clean up todos for inactive professions
+                char.todos.professions[normalizedProf] = nil
             end
         end
     end
     
-    NM:Log("Total unique todos loaded: " .. #todos)
+    -- Clean up professions structure
+    if char.todos and char.todos.professions then
+        for profName, _ in pairs(char.todos.professions) do
+            if not currentProfessions[profName] then
+                NM:Log("Cleaning up inactive profession: " .. profName)
+                char.todos.professions[profName] = nil
+            end
+        end
+    end
+    
+    NM:Log("Total todos loaded: " .. #todos)
     NM:Log("=== GetTodos Debug End ===")
     
     return todos
@@ -594,68 +610,139 @@ end
 
 -- In your event handling setup
 function NM:OnProfessionUpdate(event, ...)
-    NM:Log("Profession update event fired: " .. event)
+    NM:Log("=== Profession Update Event Start ===")
+    NM:Log("Event: " .. event)
     
     local char = self.DB:GetCurrentCharacter()
-    if not char then return end
+    if not char then 
+        NM:Log("No character found")
+        return 
+    end
     
     -- Get current professions
     local currentProfessions = {}
-    
-    -- Get profession info using C_TradeSkillUI API
-    if C_TradeSkillUI then
-        local professionInfo = C_TradeSkillUI.GetBaseProfessionInfo()
-        if professionInfo then
-            local profName = professionInfo.professionName
-            if profName then
-                currentProfessions[profName] = true
-            end
-        end
-    end
-    
-    -- Alternative method for getting professions
     local prof1, prof2 = GetProfessions()
+    
     if prof1 then
         local name = self.DB:NormalizeProfessionName(GetProfessionInfo(prof1))
-        if name then
+        if name then 
             currentProfessions[name] = true
+            NM:Log("Found profession 1: " .. name)
         end
     end
     if prof2 then
         local name = self.DB:NormalizeProfessionName(GetProfessionInfo(prof2))
-        if name then
+        if name then 
             currentProfessions[name] = true
+            NM:Log("Found profession 2: " .. name)
         end
     end
     
-    NM:Log("Current professions found: " .. NM.Utils.tableToString(currentProfessions))
+    -- Initialize profession structure if needed
+    if not char.todos then char.todos = {} end
+    if not char.todos.professions then char.todos.professions = {} end
     
-    -- Compare with stored professions and update
+    -- Check for profession changes
+    local professionsChanged = false
+    
+    -- Remove unlearned professions
     for profession, _ in pairs(char.todos.professions) do
         if not currentProfessions[profession] then
-            -- Profession was unlearned
-            NM:Log("Profession unlearned: " .. profession)
-            self.DB:SyncProfessionTodos(char, profession, false)
+            NM:Log("Removing unlearned profession: " .. profession)
+            char.todos.professions[profession] = nil
+            professionsChanged = true
         end
     end
     
-    -- Check for newly learned professions
+    -- Add new professions and sync todos
     for profession, _ in pairs(currentProfessions) do
         if not char.todos.professions[profession] then
-            -- New profession learned
-            NM:Log("New profession learned: " .. profession)
+            NM:Log("Adding new profession: " .. profession)
+            char.todos.professions[profession] = {}
             self.DB:SyncProfessionTodos(char, profession, true)
+            professionsChanged = true
         end
     end
     
-    -- Update stored professions
-    char.todos.professions = {}
-    for profession, _ in pairs(currentProfessions) do
-        char.todos.professions[profession] = char.todos.professions[profession] or {}
+    -- Force UI update if professions changed
+    if professionsChanged then
+        NM:Log("Professions changed - Updating UI")
+        C_Timer.After(0.1, function()
+            self:reloadScrollFrameTable()
+            -- Double-check update after a short delay
+            C_Timer.After(0.5, function()
+                self:reloadScrollFrameTable()
+            end)
+        end)
     end
     
-    -- Refresh UI
-    self:reloadScrollFrameTable()
+    NM:Log("=== Profession Update Event End ===")
+end
+
+-- Helper function to sync profession todos
+function DB:SyncProfessionTodos(char, profession, isLearning)
+    if not char or not profession then return end
+    
+    NM:Log("=== Syncing Profession Todos ===")
+    NM:Log("Character: " .. char.name)
+    NM:Log("Profession: " .. profession)
+    NM:Log("Is Learning: " .. tostring(isLearning))
+    
+    if isLearning then
+        -- Ensure profession structure exists
+        if not char.todos.professions[profession] then
+            char.todos.professions[profession] = {}
+        end
+        
+        -- Check global todos
+        if NM.db.global.profession[profession] then
+            local added = 0
+            for _, globalTodo in ipairs(NM.db.global.profession[profession]) do
+                local localKey = globalTodo.key .. "_" .. char.id
+                
+                -- Check if we already have this todo
+                local hasLocalCopy = false
+                for _, localTodo in ipairs(char.todos.professions[profession]) do
+                    if localTodo.key == localKey then
+                        hasLocalCopy = true
+                        break
+                    end
+                end
+                
+                -- Create local copy if needed
+                if not hasLocalCopy then
+                    local todoCopy = {
+                        key = localKey,
+                        title = globalTodo.title,
+                        description = globalTodo.description,
+                        frequency = globalTodo.frequency,
+                        type = "profession",
+                        assignment = profession,
+                        complete = false,
+                        completedAt = nil
+                    }
+                    table.insert(char.todos.professions[profession], todoCopy)
+                    added = added + 1
+                end
+            end
+            NM:Log("Added " .. added .. " todos for " .. profession)
+        end
+    end
+    
+    NM:Log("=== Sync Complete ===")
+end
+
+-- Helper function to clean up profession todos
+function DB:CleanupProfessionTodos(char, profession)
+    if not char or not profession then return end
+    
+    NM:Log("Cleaning up todos for profession: " .. profession)
+    
+    -- Remove profession todos for this character
+    if char.todos and char.todos.professions then
+        char.todos.professions[profession] = nil
+        NM:Log("Removed profession todos for: " .. profession)
+    end
 end
 
 -- Register the correct events
@@ -714,4 +801,77 @@ function DB:NormalizeProfessionName(profName)
     if not profName then return nil end
     -- First character uppercase, rest lowercase
     return profName:gsub("^%l", string.upper)
+end
+
+function DB:LoadMissingProfessionTodoToCharacter()
+    local char = self:GetCurrentCharacter()
+    if not char then return end
+    
+    NM:Log("=== Loading Missing Profession Todos ===")
+    NM:Log("Character: " .. char.name)
+    
+    -- Ensure character has profession structure
+    if not char.todos then char.todos = {} end
+    if not char.todos.professions then char.todos.professions = {} end
+    
+    -- Get current professions
+    local currentProfessions = {}
+    local prof1, prof2 = GetProfessions()
+    
+    if prof1 then
+        local name = self:NormalizeProfessionName(GetProfessionInfo(prof1))
+        if name then currentProfessions[name] = true end
+    end
+    if prof2 then
+        local name = self:NormalizeProfessionName(GetProfessionInfo(prof2))
+        if name then currentProfessions[name] = true end
+    end
+    
+    -- For each profession the character has
+    for profName, _ in pairs(currentProfessions) do
+        NM:Log("Checking profession: " .. profName)
+        
+        -- Initialize profession list if needed
+        if not char.todos.professions[profName] then
+            char.todos.professions[profName] = {}
+        end
+        
+        -- Check global todos for this profession
+        if NM.db.global.profession[profName] then
+            for _, globalTodo in ipairs(NM.db.global.profession[profName]) do
+                local localKey = globalTodo.key .. "_" .. char.id
+                
+                -- Check if we already have this todo
+                local hasLocalCopy = false
+                for _, localTodo in ipairs(char.todos.professions[profName]) do
+                    if localTodo.key == localKey then
+                        hasLocalCopy = true
+                        break
+                    end
+                end
+                
+                -- If we don't have it, create a local copy
+                if not hasLocalCopy then
+                    NM:Log("Creating local copy of todo: " .. globalTodo.title)
+                    local todoCopy = {
+                        key = localKey,
+                        title = globalTodo.title,
+                        description = globalTodo.description,
+                        frequency = globalTodo.frequency,
+                        type = "profession",
+                        assignment = profName,
+                        complete = false,
+                        completedAt = nil
+                    }
+                    table.insert(char.todos.professions[profName], todoCopy)
+                end
+            end
+        end
+    end
+    
+    NM:Log("=== Finished Loading Missing Profession Todos ===")
+end
+
+NM.LoadMissingProfessionTodoToCharacter = function()
+    return NM.DB:LoadMissingProfessionTodoToCharacter()
 end
