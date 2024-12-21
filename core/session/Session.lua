@@ -146,6 +146,19 @@ function session:GetPostrunMsg()
             L["Gold total: "] .. session:FormatGold(session.totalGold) .. "\n" ..
             L["Annotation: "] .. "-"
         ;
+
+        if self.itemsLooted and next(self.itemsLooted) then
+            NM:Log("ItemsLooted: " .. NM.Utils.tableToString(self.itemsLooted))
+            for itemID, count in pairs(self.itemsLooted) do
+                if NM.DB:ShouldTrackItem(itemID) then
+                    local itemName, _, itemRarity = C_Item.GetItemInfo(itemID)
+                    if itemName then
+                        local _, _, _, hexColor =  C_Item.GetItemQualityColor(itemRarity)
+                        msg = msg .. "\n- " .. string.format("|c%s%s|r x%d", hexColor, itemName, count)
+                    end
+                end
+            end
+        end 
         return msg;
     end
 

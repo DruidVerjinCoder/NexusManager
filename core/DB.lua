@@ -875,3 +875,98 @@ end
 NM.LoadMissingProfessionTodoToCharacter = function()
     return NM.DB:LoadMissingProfessionTodoToCharacter()
 end
+
+-- Helper function to check if an item matches the enabled options
+function DB:ShouldTrackItem(itemID)
+    print("Should Track Item")
+    if not itemID then 
+        NM:Log("ShouldTrackItem: No itemID provided")
+        return false 
+    end
+    
+    local itemName, _, itemRarity, _, _, itemType, itemSubType = C_Item.GetItemInfo(itemID)
+    if not itemName then 
+        NM:Log("ShouldTrackItem: Could not get item info for ID " .. itemID)
+        return false 
+    end
+    
+    NM:Log("Checking item: " .. itemName .. " (Rarity: " .. itemRarity .. ")")
+    
+    -- Check general options (item rarity)
+    local rarityMap = {
+        [0] = "poor",
+        [1] = "common",
+        [2] = "uncommon",
+        [3] = "rare",
+        [4] = "epic",
+        [5] = "legendary"
+    }
+    
+    local rarityOption = rarityMap[itemRarity]
+    if rarityOption then
+        NM:Log("Checking rarity option: " .. rarityOption .. " = " .. tostring(NM.db.profile.general[rarityOption]))
+        if NM.db.profile.general[rarityOption] then
+            NM:Log("Item should be tracked due to rarity setting")
+            return true
+        end
+    end
+    
+    -- Check trade goods
+    if itemType == ITEM_QUALITY_COLORS[1] then -- "Trade Goods"
+        local tradeMap = {
+            [L["Cloth"]] = "cloth",
+            [L["Leather"]] = "leather",
+            [L["Metal & Stone"]] = "metalStone",
+            [L["Cooking"]] = "cooking",
+            [L["Herb"]] = "herb",
+            [L["Enchanting"]] = "enchanting",
+            [L["Inscription"]] = "inscription",
+            [L["Jewelcrafting"]] = "jewelcrafting",
+            [L["Parts"]] = "parts",
+            [L["Elemental"]] = "elemental",
+        }
+        
+        if tradeMap[itemSubType] and NM.db.profile.tradeskill[tradeMap[itemSubType]] then
+            return true
+        end
+    end
+    
+    -- Check miscellaneous items
+    if itemType == ITEM_QUALITY_COLORS[0] then -- "Miscellaneous"
+        local miscMap = {
+            [L["Junk"]] = "junk",
+            [L["Reagent"]] = "reagent",
+            [L["CompanionPet"]] = "companionPet",
+            [L["Holiday"]] = "holiday",
+            [L["Mount"]] = "mount",
+            [L["MountEquipment"]] = "mountEquipment",
+        }
+        
+        if miscMap[itemSubType] and NM.db.profile.miscellaneous[miscMap[itemSubType]] then
+            return true
+        end
+    end
+    
+    -- Check recipes
+    if itemType == L["Recipe"] then
+        local recipeMap = {
+            [L["Leatherworking"]] = "Leatherworking",
+            [L["Tailoring"]] = "Tailoring",
+            [L["Engineering"]] = "Engineering",
+            [L["Blacksmithing"]] = "Blacksmithing",
+            [L["Cooking"]] = "Cooking",
+            [L["Alchemy"]] = "Alchemy",
+            [L["Firstaid"]] = "Firstaid",
+            [L["Enchanting"]] = "Enchanting",
+            [L["Fishing"]] = "Fishing",
+            [L["Jewelcrafting"]] = "Jewelcrafting",
+            [L["Inscription"]] = "Inscription",
+        }
+        
+        if recipeMap[itemSubType] and NM.db.profile.recipe[recipeMap[itemSubType]] then
+            return true
+        end
+    end
+    
+    return false
+end

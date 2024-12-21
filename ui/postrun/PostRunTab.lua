@@ -166,9 +166,117 @@ function PostRunTab:SetupSessionButtonCallbacks(button)
 end
 
 function PostRunTab:UpdateOutput(text)
-    if NM.ui.postrun and NM.ui.postrun.output then
-        NM.ui.postrun.output:SetText(text)
+    if not NM.ui.postrun or not NM.ui.postrun.output then return end
+    
+    local annotations = {}
+    local outputText = text or ""
+    
+    NM:Log("=== UpdateOutput Start ===")
+    
+    -- Check if we have looted items in the session
+    if NM.session and NM.session.itemsLooted then
+        NM:Log("Found itemsLooted in session")
+        NM:Log("Items in session: " .. NM.Utils.tableToString(NM.session.itemsLooted))
+        
+        -- Group items by type for better organization
+        local itemsByType = {
+            General = {},      -- For rarity-based items
+            TradeGoods = {},   -- For tradeskill items
+            Miscellaneous = {},-- For misc items
+            Recipes = {}       -- For recipe items
+        }
+        
+        -- Process each looted item
+        for itemID, count in pairs(NM.session.itemsLooted) do
+            NM:Log("Processing item: " .. itemID .. " (Count: " .. count .. ")")
+            local itemName, _, itemRarity, _, _, itemType, itemSubType = C_Item.GetItemInfo(itemID)
+            
+            if itemName then
+                NM:Log("Item info - Name: " .. itemName .. ", Rarity: " .. itemRarity .. ", Type: " .. itemType)
+                if NM.DB:ShouldTrackItem(itemID) then
+                    NM:Log("Item should be tracked")
+                    local _, _, _, hexColor = C_Item.GetItemQualityColor(itemRarity)
+                    local itemText = string.format("|c%s%s|r x%d", hexColor, itemName, count)
+                    
+                    -- Categorize the item
+                    if itemType == ITEM_QUALITY_COLORS[1] then -- Trade Goods
+                        table.insert(itemsByType.TradeGoods, {text = itemText, subType = itemSubType})
+                        NM:Log("Added to Trade Goods")
+                    elseif itemType == ITEM_QUALITY_COLORS[0] then -- Miscellaneous
+                        table.insert(itemsByType.Miscellaneous, {text = itemText, subType = itemSubType})
+                        NM:Log("Added to Miscellaneous")
+                    elseif itemType == L["Recipe"] then
+                        table.insert(itemsByType.Recipes, {text = itemText, subType = itemSubType})
+                        NM:Log("Added to Recipes")
+                    else
+                        table.insert(itemsByType.General, {text = itemText, rarity = itemRarity})
+                        NM:Log("Added to General")
+                    end
+                else
+                    NM:Log("Item should not be tracked")
+                end
+            else
+                NM:Log("Could not get item info for ID: " .. itemID)
+            end
+        end
+        
+        -- Add annotations if we found any tracked items
+        local hasAnnotations = false
+        
+        -- Add header if we have any annotations
+        if next(itemsByType.General) or next(itemsByType.TradeGoods) or 
+           next(itemsByType.Miscellaneous) or next(itemsByType.Recipes) then
+            table.insert(annotations, "\n\nTracked Items:")
+            hasAnnotations = true
+        end
+        
+        -- Add items by rarity
+        if next(itemsByType.General) then
+            table.insert(annotations, "\nBy Rarity:")
+            table.sort(itemsByType.General, function(a, b) return a.rarity > b.rarity end)
+            for _, item in ipairs(itemsByType.General) do
+                table.insert(annotations, "  " .. item.text)
+            end
+        end
+        
+        -- Add trade goods
+        if next(itemsByType.TradeGoods) then
+            table.insert(annotations, "\nTrade Goods:")
+            table.sort(itemsByType.TradeGoods, function(a, b) return a.subType < b.subType end)
+            for _, item in ipairs(itemsByType.TradeGoods) do
+                table.insert(annotations, "  " .. item.text .. " (" .. item.subType .. ")")
+            end
+        end
+        
+        -- Add miscellaneous items
+        if next(itemsByType.Miscellaneous) then
+            table.insert(annotations, "\nMiscellaneous:")
+            table.sort(itemsByType.Miscellaneous, function(a, b) return a.subType < b.subType end)
+            for _, item in ipairs(itemsByType.Miscellaneous) do
+                table.insert(annotations, "  " .. item.text .. " (" .. item.subType .. ")")
+            end
+        end
+        
+        -- Add recipes
+        if next(itemsByType.Recipes) then
+            table.insert(annotations, "\nRecipes:")
+            table.sort(itemsByType.Recipes, function(a, b) return a.subType < b.subType end)
+            for _, item in ipairs(itemsByType.Recipes) do
+                table.insert(annotations, "  " .. item.text .. " (" .. item.subType .. ")")
+            end
+        end
+    else
+        NM:Log("No itemsLooted found in session")
     end
+    
+    NM:Log("=== UpdateOutput End ===")
+    
+    -- Combine original text with annotations
+    if #annotations > 0 then
+        outputText = outputText .. table.concat(annotations, "\n")
+    end
+    
+    NM.ui.postrun.output:SetText(outputText)
 end
 
 NM.postrun = PostRunTab
