@@ -138,6 +138,25 @@ function session:addItem(itemID, quantity)
       elseif quality == 3 then self.rare = self.rare + quantity
       elseif quality == 4 then self.epic = self.epic + quantity end
    end
+   
+   -- Challenge Update nach LIV Änderung
+   if self.state == "running" and NM.Challenge and NM.Challenge.state == "running" then
+      local currentData = {
+         player = UnitName("player"),
+         liv = self.liv,
+         items = self.itemsLooted,
+         totalGold = self.totalGold,
+         lootedGold = self.lootedGold
+      }
+      
+      -- Sende immer ein Update, unabhängig ob Leader oder nicht
+      NM.Challenge:BroadcastMessage("LIVE_UPDATE", currentData)
+      
+      -- Leader aktualisiert auch seine eigenen Daten direkt
+      if NM.Challenge.leader == UnitName("player") then
+         NM.Challenge:UpdateLiveResult(UnitName("player"), currentData)
+      end
+   end
 end
 
 -- Session State Management
@@ -220,20 +239,20 @@ function session:zoneSwitched()
    end
 end
 
-function session:moneyLooted(message)
+function session:moneyLooted(event, msg)
    if self.state ~= "running" then return end
    
    local copper = 0
-   local gold = tonumber(message:match("(%d+) Gold") or 0)
-   local silver = tonumber(message:match("(%d+) Silver") or 0)
-   local copperMatch = tonumber(message:match("(%d+) Copper") or 0)
+   local gold = tonumber(msg:match("(%d+) Gold") or 0)
+   local silver = tonumber(msg:match("(%d+) Silver") or 0)
+   local copperMatch = tonumber(msg:match("(%d+) Copper") or 0)
    
    -- Korrigierte Berechnung: 1 Gold = 10000 Kupfer, 1 Silber = 100 Kupfer
-   copper = (gold * 100 * 100) + (silver * 100) + copperMatch
+   copper = (gold * 10000) + (silver * 100) + copperMatch
    
    if copper > 0 then
       self.lootedGold = self.lootedGold + copper
-      self.totalGold = self.totalGold + copper
+      NM:Debug("Money looted: %d copper", copper)
    end
 end
 
@@ -245,6 +264,23 @@ function session:moneyChanged()
    
    if moneyDiff > 0 then
       self.totalGold = self.totalGold + moneyDiff
+      
+      -- Wenn wir in einer Challenge sind, sende Update
+      if NM.Challenge and NM.Challenge.state == "running" then
+         local currentData = {
+            player = UnitName("player"),
+            liv = self.liv,
+            items = self.itemsLooted,
+            totalGold = self.totalGold,
+            lootedGold = self.lootedGold
+         }
+         
+         if NM.Challenge.leader == UnitName("player") then
+            NM.Challenge:UpdateLiveResult(UnitName("player"), currentData)
+         else
+            NM.Challenge:BroadcastMessage("LIVE_UPDATE", currentData)
+         end
+      end
    end
    
    self.currentGold = newMoney

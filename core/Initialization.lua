@@ -116,9 +116,10 @@ function NM:OnInitialize()
             NM.session:itemLooted(...)
         end
     end)
-    self:RegisterEvent("CHAT_MSG_MONEY", function(...)
+    self:RegisterEvent("CHAT_MSG_MONEY", function(event, msg)
         if NM.session then
-            NM.session:moneyLooted(...)
+            print("=== Inside === ")
+            NM.session:moneyLooted(event, msg)
         end
     end)
     self:RegisterEvent("UPDATE_INSTANCE_INFO", function(...)

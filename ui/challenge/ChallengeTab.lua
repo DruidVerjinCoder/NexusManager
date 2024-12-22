@@ -198,12 +198,17 @@ function ChallengeTab:Create()
     end
     
     -- Neue UpdateResults Funktion
-    function container:UpdateResults(results)
+    function container:UpdateResults(sortedResults)
         NM:Debug("ChallengeTab: Updating results")
-        if not results then return end
+        if not sortedResults then return end
         
-        -- Aktualisiere die Teilnehmerliste mit den neuen Ergebnissen
-        self:UpdateParticipants(NM.Challenge.participants, results)
+        -- Aktualisiere die Anzeige der Ergebnisse
+        -- Zeige Platzierung, Name, LIV und optional Items/Gold
+        for i, result in ipairs(sortedResults) do
+            -- Hier die UI-Logik für die Anzeige der sortierten Ergebnisse
+            -- z.B. mit einer ScrollList oder ähnlichem
+            -- Platz #i: result.player - LIV: result.liv
+        end
     end
     
     -- UI State Updates
@@ -263,6 +268,19 @@ function ChallengeTab:Create()
     
     NM.ui.challenge = container
     return container
+end
+
+function ChallengeTab:SetStartButtonEnabled(enabled)
+    if self.startButton then
+        self.startButton:SetEnabled(enabled)
+    end
+end
+
+function ChallengeTab:OnStartButtonClick()
+    if NM.Challenge then
+        local duration = 3600  -- Standard: 1 Stunde
+        NM.Challenge:Start(duration)
+    end
 end
 
 NM.ChallengeTab = ChallengeTab

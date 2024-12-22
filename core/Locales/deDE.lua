@@ -77,3 +77,20 @@ L["Yes"] = "Ja"
 L["No"] = "Nein"
 L["Todo deleted"] = "Todo gelöscht"
 L["Failed to delete todo"] = "Fehler beim Löschen des Todos"
+L["Time Remaining"] = "Verbleibende Zeit"
+
+-- Challenge related translations
+L["Challenge invitation from %s"] = "Herausforderung von %s"
+L["Accept"] = "Annehmen"
+L["Decline"] = "Ablehnen"
+L["Challenge invitations sent to %d players"] = "Herausforderung an %d Spieler gesendet"
+L["No online WoW friends found to invite"] = "Keine Online-WoW-Freunde zum Einladen gefunden"
+L["Challenge accepted"] = "Herausforderung angenommen"
+L["Challenge declined"] = "Herausforderung abgelehnt"
+L["%s accepted the challenge"] = "%s hat die Herausforderung angenommen"
+L["%s declined the challenge"] = "%s hat die Herausforderung abgelehnt"
+L["No participants have accepted the challenge"] = "Keine Teilnehmer haben die Herausforderung angenommen"
+
+-- Challenge Results
+L["Total LIV: %d"] = "Gesamt LIV: %d"
+L["Winner: %s with %d LIV"] = "Gewinner: %s mit %d LIV"
