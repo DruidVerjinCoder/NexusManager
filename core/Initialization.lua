@@ -95,6 +95,14 @@ function NM:InitializeDB()
     end
 end
 
+function NM:Debug(...)
+    if not self.db.profile.debug then return end
+    
+    local message = string.format(...)
+    local timestamp = date("%H:%M:%S")
+    print(string.format("|cFF69CCF0[NM Debug %s]|r %s", timestamp, message))
+end
+
 function NM:OnInitialize()
     self.db = AceDB:New("NexusManagerDB")
     self:InitializeDB()
@@ -123,6 +131,32 @@ function NM:OnInitialize()
             NM.session:moneyChanged(...)
         end
     end)
+    
+    -- Registriere Challenge Kommunikation
+    self:RegisterEvent("BN_CHAT_MSG_ADDON")
+    
+    -- Registriere den Addon-Präfix für Battle.net-Kommunikation
+    C_ChatInfo.RegisterAddonMessagePrefix("NM_CHALLENGE")
+    
+    -- Default Einstellungen
+    local defaults = {
+        profile = {
+            debug = false,  -- Debug-Modus standardmäßig aus
+            -- ... andere defaults ...
+        }
+    }
+    
+    self.db = LibStub("AceDB-3.0"):New("NexusManagerDB", defaults, true)
+end
+
+function NM:OnEnable()
+    -- Existierender Code...
+end
+
+function NM:BN_CHAT_MSG_ADDON(event, prefix, message, channel, sender)
+    if prefix ~= "NM_CHALLENGE" then return end
+    
+    NM.Challenge:HandleMessage(sender, message)
 end
 
 function NM:OpenNexusManager(input)

@@ -317,12 +317,17 @@ function NM:CreateMainFrame()
                     tabContent.frame:Show()
                     if j == 1 then
                         tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -30)
-                        todosContainer:AddChild(NM:InitializeTodoTabContainer())
+                        local todoContainer = NM:InitializeTodoTabContainer()
+                        if todoContainer then  -- Prüfe ob Container existiert
+                            todosContainer:AddChild(todoContainer)
+                        end
                         NM.currentTab = "todo"
                     elseif j == 2 then
                         tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 15, -50)
                         if not NM.ui.postrun then
                             NM.postrun:Create()
+                        end
+                        if NM.ui.postrun then  -- Prüfe ob UI existiert
                             postrunContainer:AddChild(NM.ui.postrun)
                         end
                         NM.currentTab = "postrun" 
@@ -330,13 +335,17 @@ function NM:CreateMainFrame()
                         tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 15, -50)
                         if not NM.ui.items then
                             NM.ui.items = NM.ItemsContainer:Create()
+                        end
+                        if NM.ui.items then  -- Prüfe ob Items UI existiert
                             itemContainer:AddChild(NM.ui.items)
-                        end 
+                        end
                         NM.currentTab = "items"
                     elseif j == 4 then
                         tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -50)
                         if not NM.ui.challenge then
-                            NM.ChallengeTab:Create()
+                            NM.ui.challenge = NM.ChallengeTab:Create()  -- Speichere das UI in NM.ui.challenge
+                        end
+                        if NM.ui.challenge then  -- Prüfe ob Challenge UI existiert
                             challengeContainer:AddChild(NM.ui.challenge)
                         end
                         NM.currentTab = "challenge"

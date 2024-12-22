@@ -147,7 +147,14 @@ function PostRunTab:SetupSessionButtonCallbacks(button)
             self:SetImage(PostRunTab.ICONS.PLAY)
         else
             -- Starten einer neuen Session
-            NM.session:start()
+            if type(NM.session.start) == "number" then
+                -- Wenn start eine Zahl ist, initialisiere die Session neu
+                NM.session:init()
+                NM.session.state = "running"
+            else
+                -- Normale Startmethode aufrufen
+                NM.session:start()
+            end
             self:SetImage(PostRunTab.ICONS.PAUSE)
         end
     end)
