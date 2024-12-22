@@ -58,7 +58,12 @@ function NM:reloadScrollFrameTable()
     -- Add todos to container
     for _, todo in ipairs(todos) do
         local chkBox = NM.UIFunctions:createCheckBox(todo.title, todo.complete,
-            function(self) NM:CheckTodo(todo.key, todo.type, self:GetValue()) end)
+            function(self) 
+                NM:Log("Checking todo: " .. todo.title)
+                NM:Log("Key: " .. (todo.key or "nil"))
+                NM:Log("Type: " .. (todo.type or "nil"))
+                NM.DB:CheckTodo(todo) -- Übergebe das gesamte todo-Objekt
+            end)
         chkBox:SetWidth(250)
 
         if todo.type == "profession" then
@@ -241,7 +246,15 @@ end
 
 local function reloadPostrunContainer()
     if NM.ui.postrun then
-        NM.ui.postrun.output:SetText(NM.session:GetPostrunMsg())
+        -- Prüfe ob die Session pausiert ist
+        if not NM.session or NM.session.state == "paused" then
+            return
+        end
+        
+        -- Nur aktualisieren wenn die Session läuft
+        if NM.session.state == "running" then
+            NM.ui.postrun.output:SetText(NM.session:GetPostrunMsg())
+        end
     end
 end
 
@@ -257,6 +270,7 @@ function NM:CreateMainFrame()
         mainFrame:SetScript("OnUpdate", function(_, elapsed)
             mainUiTotal = mainUiTotal + elapsed
             if mainUiTotal >= 1 then
+                mainUiTotal = 0  -- Reset the counter
                 reloadPostrunContainer()
             end
 

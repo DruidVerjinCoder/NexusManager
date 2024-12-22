@@ -201,7 +201,7 @@ function ItemsContainer:Update()
     local sessionItems = {}
     -- Hole Items unabhängig vom Session-Status
     if NM.session then
-        sessionItems = NM.session:GetItems()
+        sessionItems = NM.session.itemsLooted
     end
     
     -- Sortierung anwenden

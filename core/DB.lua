@@ -808,15 +808,14 @@ function DB:LoadMissingProfessionTodoToCharacter()
     if not char then return end
     
     NM:Log("=== Loading Missing Profession Todos ===")
-    NM:Log("Character: " .. char.name)
     
-    -- Ensure character has profession structure
+    -- Initialize profession todos if needed
     if not char.todos then char.todos = {} end
     if not char.todos.professions then char.todos.professions = {} end
     
     -- Get current professions
-    local currentProfessions = {}
     local prof1, prof2 = GetProfessions()
+    local currentProfessions = {}
     
     if prof1 then
         local name = self:NormalizeProfessionName(GetProfessionInfo(prof1))
@@ -827,49 +826,57 @@ function DB:LoadMissingProfessionTodoToCharacter()
         if name then currentProfessions[name] = true end
     end
     
-    -- For each profession the character has
-    for profName, _ in pairs(currentProfessions) do
-        NM:Log("Checking profession: " .. profName)
+    -- For each current profession
+    for profession in pairs(currentProfessions) do
+        NM:Log("Checking profession: " .. profession)
         
-        -- Initialize profession list if needed
-        if not char.todos.professions[profName] then
-            char.todos.professions[profName] = {}
+        -- Initialize profession table if needed
+        if not char.todos.professions[profession] then
+            char.todos.professions[profession] = {}
         end
         
-        -- Check global todos for this profession
-        if NM.db.global.profession[profName] then
-            for _, globalTodo in ipairs(NM.db.global.profession[profName]) do
+        -- Check global todos
+        if NM.db.global.profession[profession] then
+            for _, globalTodo in ipairs(NM.db.global.profession[profession]) do
                 local localKey = globalTodo.key .. "_" .. char.id
                 
                 -- Check if we already have this todo
                 local hasLocalCopy = false
-                for _, localTodo in ipairs(char.todos.professions[profName]) do
+                for _, localTodo in ipairs(char.todos.professions[profession]) do
                     if localTodo.key == localKey then
                         hasLocalCopy = true
                         break
                     end
                 end
                 
-                -- If we don't have it, create a local copy
+                -- Create local copy if needed
                 if not hasLocalCopy then
-                    NM:Log("Creating local copy of todo: " .. globalTodo.title)
+                    NM:Log("Adding new todo for " .. profession .. ": " .. globalTodo.title)
                     local todoCopy = {
                         key = localKey,
                         title = globalTodo.title,
                         description = globalTodo.description,
                         frequency = globalTodo.frequency,
                         type = "profession",
-                        assignment = profName,
+                        assignment = profession,
                         complete = false,
                         completedAt = nil
                     }
-                    table.insert(char.todos.professions[profName], todoCopy)
+                    table.insert(char.todos.professions[profession], todoCopy)
                 end
             end
         end
     end
     
-    NM:Log("=== Finished Loading Missing Profession Todos ===")
+    -- Clean up todos for professions we no longer have
+    for profession in pairs(char.todos.professions) do
+        if not currentProfessions[profession] then
+            NM:Log("Removing todos for unlearned profession: " .. profession)
+            char.todos.professions[profession] = nil
+        end
+    end
+    
+    NM:Log("=== Profession Todos Loading Complete ===")
 end
 
 NM.LoadMissingProfessionTodoToCharacter = function()
@@ -969,4 +976,104 @@ function DB:ShouldTrackItem(itemID)
     end
     
     return false
+end
+
+function DB:CheckTodo(todo)
+    if not todo then 
+        NM:Log("CheckTodo: No todo provided")
+        return false 
+    end
+    
+    -- Get current character
+    local char = self:GetCurrentCharacter()
+    if not char then 
+        NM:Log("CheckTodo: No character found")
+        return false 
+    end
+    
+    NM:Log("=== CheckTodo Debug ===")
+    NM:Log("Todo Key: " .. (todo.key or "nil"))
+    NM:Log("Todo Type: " .. (todo.type or "nil"))
+    if todo.type == "profession" then
+        NM:Log("Profession: " .. (todo.assignment or "nil"))
+    end
+    
+    -- Initialize todos structure if needed
+    if not char.todos then 
+        NM:Log("Initializing todos structure")
+        char.todos = {} 
+    end
+    
+    -- Check and update todo status
+    local isComplete = false
+    if todo.type == "profession" then
+        if not char.todos.professions then char.todos.professions = {} end
+        if not char.todos.professions[todo.assignment] then char.todos.professions[todo.assignment] = {} end
+        
+        -- Find existing todo
+        local found = false
+        for _, profTodo in ipairs(char.todos.professions[todo.assignment]) do
+            if profTodo.key == todo.key then
+                found = true
+                isComplete = not profTodo.complete  -- Toggle status
+                profTodo.complete = isComplete
+                profTodo.completedAt = isComplete and time() or nil
+                NM:Log("Found existing todo - New status: " .. tostring(isComplete))
+                break
+            end
+        end
+        
+        -- If not found, create new todo
+        if not found then
+            NM:Log("Creating new profession todo")
+            local newTodo = {
+                key = todo.key,
+                title = todo.title,
+                description = todo.description,
+                frequency = todo.frequency,
+                type = "profession",
+                assignment = todo.assignment,
+                complete = true,
+                completedAt = time()
+            }
+            table.insert(char.todos.professions[todo.assignment], newTodo)
+            isComplete = true
+        end
+        
+    elseif todo.type == "instance" then
+        if not char.todos.instances then char.todos.instances = {} end
+        
+        -- Similar logic for instance todos
+        local found = false
+        for _, instTodo in ipairs(char.todos.instances) do
+            if instTodo.key == todo.key then
+                found = true
+                isComplete = not instTodo.complete  -- Toggle status
+                instTodo.complete = isComplete
+                instTodo.completedAt = isComplete and time() or nil
+                NM:Log("Found existing instance todo - New status: " .. tostring(isComplete))
+                break
+            end
+        end
+        
+        if not found then
+            NM:Log("Creating new instance todo")
+            local newTodo = {
+                key = todo.key,
+                title = todo.title,
+                description = todo.description,
+                frequency = todo.frequency,
+                type = "instance",
+                complete = true,
+                completedAt = time()
+            }
+            table.insert(char.todos.instances, newTodo)
+            isComplete = true
+        end
+    end
+    
+    NM:Log("Final status: " .. tostring(isComplete))
+    NM:Log("=== CheckTodo End ===")
+    
+    return isComplete
 end

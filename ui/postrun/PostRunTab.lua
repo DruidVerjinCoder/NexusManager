@@ -9,7 +9,8 @@ local PostRunTab = {
         BUTTON_SIZES = {
             SESSION = 60,
             RESET = 30,
-            INSTANCE = 150
+            INSTANCE = 150,
+            COPY = 25
         }
     },
     
@@ -91,6 +92,7 @@ function PostRunTab:CreateSessionControls(container)
     -- Reset Instance Button
     local resetInstanceButton = self:CreateResetInstanceButton()
     container:AddChild(resetInstanceButton)
+    
 end
 
 function PostRunTab:CreateSessionButton()
@@ -132,18 +134,21 @@ end
 
 function PostRunTab:SetupSessionButtonCallbacks(button)
     button:SetCallback("OnClick", function(self)
-        local isSessionRunning = NM.session.state == "running"
-        local isSessionPaused = NM.session.state == "paused"
+        local isSessionRunning = NM.session and NM.session.state == "running"
+        local isSessionPaused = NM.session and NM.session.state == "paused"
 
-        if not isSessionRunning then
-            NM.session:start()
-            self:SetImage(PostRunTab.ICONS.PAUSE)
-        elseif isSessionPaused and isSessionRunning then
+        if isSessionPaused then
+            -- Fortsetzen einer pausierten Session
             NM.session:continue()
             self:SetImage(PostRunTab.ICONS.PAUSE)
-        else
+        elseif isSessionRunning then
+            -- Pausieren einer laufenden Session
             NM.session:pause()
             self:SetImage(PostRunTab.ICONS.PLAY)
+        else
+            -- Starten einer neuen Session
+            NM.session:start()
+            self:SetImage(PostRunTab.ICONS.PAUSE)
         end
     end)
     
@@ -151,15 +156,15 @@ function PostRunTab:SetupSessionButtonCallbacks(button)
         GameTooltip:ClearLines()
         GameTooltip:SetOwner(self.frame, "ANCHOR_CURSOR")
 
-        local isSessionRunning = NM.session.state == "running"
-        local isSessionPaused = NM.session.state == "paused"
+        local isSessionRunning = NM.session and NM.session.state == "running"
+        local isSessionPaused = NM.session and NM.session.state == "paused"
 
-        if not isSessionRunning then
-            GameTooltip:AddLine(L["Start the farm session"])
-        elseif isSessionPaused and isSessionRunning then
+        if isSessionPaused then
             GameTooltip:AddLine(L["Continue the current farm session"])
-        else
+        elseif isSessionRunning then
             GameTooltip:AddLine(L["Pause the current farm session"])
+        else
+            GameTooltip:AddLine(L["Start the farm session"])
         end
         GameTooltip:Show()
     end)
@@ -170,106 +175,28 @@ function PostRunTab:UpdateOutput(text)
     
     local annotations = {}
     local outputText = text or ""
-    
-    NM:Log("=== UpdateOutput Start ===")
+    local itemTexts = {}  -- Neue Liste für Item-Texte
     
     -- Check if we have looted items in the session
     if NM.session and NM.session.itemsLooted then
-        NM:Log("Found itemsLooted in session")
-        NM:Log("Items in session: " .. NM.Utils.tableToString(NM.session.itemsLooted))
-        
-        -- Group items by type for better organization
-        local itemsByType = {
-            General = {},      -- For rarity-based items
-            TradeGoods = {},   -- For tradeskill items
-            Miscellaneous = {},-- For misc items
-            Recipes = {}       -- For recipe items
-        }
-        
         -- Process each looted item
         for itemID, count in pairs(NM.session.itemsLooted) do
-            NM:Log("Processing item: " .. itemID .. " (Count: " .. count .. ")")
-            local itemName, _, itemRarity, _, _, itemType, itemSubType = C_Item.GetItemInfo(itemID)
-            
-            if itemName then
-                NM:Log("Item info - Name: " .. itemName .. ", Rarity: " .. itemRarity .. ", Type: " .. itemType)
-                if NM.DB:ShouldTrackItem(itemID) then
-                    NM:Log("Item should be tracked")
-                    local _, _, _, hexColor = C_Item.GetItemQualityColor(itemRarity)
-                    local itemText = string.format("|c%s%s|r x%d", hexColor, itemName, count)
-                    
-                    -- Categorize the item
-                    if itemType == ITEM_QUALITY_COLORS[1] then -- Trade Goods
-                        table.insert(itemsByType.TradeGoods, {text = itemText, subType = itemSubType})
-                        NM:Log("Added to Trade Goods")
-                    elseif itemType == ITEM_QUALITY_COLORS[0] then -- Miscellaneous
-                        table.insert(itemsByType.Miscellaneous, {text = itemText, subType = itemSubType})
-                        NM:Log("Added to Miscellaneous")
-                    elseif itemType == L["Recipe"] then
-                        table.insert(itemsByType.Recipes, {text = itemText, subType = itemSubType})
-                        NM:Log("Added to Recipes")
-                    else
-                        table.insert(itemsByType.General, {text = itemText, rarity = itemRarity})
-                        NM:Log("Added to General")
-                    end
-                else
-                    NM:Log("Item should not be tracked")
+            if NM.DB:ShouldTrackItem(itemID) then
+                local itemName, _, itemRarity = C_Item.GetItemInfo(itemID)
+                if itemName then
+                    local _, _, _, hexColor =  C_Item.GetItemQualityColor(itemRarity)
+                    -- Füge formatierte Items zur Liste hinzu
+                    table.insert(itemTexts, string.format("%dx %s%s|r", count, hexColor, itemName))
                 end
-            else
-                NM:Log("Could not get item info for ID: " .. itemID)
             end
         end
         
-        -- Add annotations if we found any tracked items
-        local hasAnnotations = false
-        
-        -- Add header if we have any annotations
-        if next(itemsByType.General) or next(itemsByType.TradeGoods) or 
-           next(itemsByType.Miscellaneous) or next(itemsByType.Recipes) then
+        -- Füge Items mit Komma getrennt hinzu, wenn welche vorhanden sind
+        if #itemTexts > 0 then
             table.insert(annotations, "\n\nTracked Items:")
-            hasAnnotations = true
+            table.insert(annotations, table.concat(itemTexts, ", "))
         end
-        
-        -- Add items by rarity
-        if next(itemsByType.General) then
-            table.insert(annotations, "\nBy Rarity:")
-            table.sort(itemsByType.General, function(a, b) return a.rarity > b.rarity end)
-            for _, item in ipairs(itemsByType.General) do
-                table.insert(annotations, "  " .. item.text)
-            end
-        end
-        
-        -- Add trade goods
-        if next(itemsByType.TradeGoods) then
-            table.insert(annotations, "\nTrade Goods:")
-            table.sort(itemsByType.TradeGoods, function(a, b) return a.subType < b.subType end)
-            for _, item in ipairs(itemsByType.TradeGoods) do
-                table.insert(annotations, "  " .. item.text .. " (" .. item.subType .. ")")
-            end
-        end
-        
-        -- Add miscellaneous items
-        if next(itemsByType.Miscellaneous) then
-            table.insert(annotations, "\nMiscellaneous:")
-            table.sort(itemsByType.Miscellaneous, function(a, b) return a.subType < b.subType end)
-            for _, item in ipairs(itemsByType.Miscellaneous) do
-                table.insert(annotations, "  " .. item.text .. " (" .. item.subType .. ")")
-            end
-        end
-        
-        -- Add recipes
-        if next(itemsByType.Recipes) then
-            table.insert(annotations, "\nRecipes:")
-            table.sort(itemsByType.Recipes, function(a, b) return a.subType < b.subType end)
-            for _, item in ipairs(itemsByType.Recipes) do
-                table.insert(annotations, "  " .. item.text .. " (" .. item.subType .. ")")
-            end
-        end
-    else
-        NM:Log("No itemsLooted found in session")
     end
-    
-    NM:Log("=== UpdateOutput End ===")
     
     -- Combine original text with annotations
     if #annotations > 0 then
