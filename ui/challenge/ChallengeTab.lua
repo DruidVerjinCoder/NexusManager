@@ -22,7 +22,6 @@ local ChallengeTab = {
 }
 
 function ChallengeTab:Create()
-    NM:Debug("ChallengeTab: Creating challenge UI")
     local container = AceGUI:Create("SimpleGroup")
     container:SetLayout("Flow")
     container:SetFullWidth(true)
@@ -69,7 +68,6 @@ function ChallengeTab:Create()
     startButton:SetWidth(self.WINDOW_CONFIG.BUTTON_WIDTH)
     startButton:SetDisabled(true)  -- Initial deaktiviert
     startButton:SetCallback("OnClick", function()
-        NM:Debug("ChallengeTab: Start button clicked")
         NM.Challenge:Start()
     end)
     buttonContainer:AddChild(startButton)
@@ -79,7 +77,6 @@ function ChallengeTab:Create()
     inviteButton:SetText(L["Send Invites"])
     inviteButton:SetWidth(self.WINDOW_CONFIG.BUTTON_WIDTH)
     inviteButton:SetCallback("OnClick", function()
-        NM:Debug("ChallengeTab: Invite button clicked")
         local duration = durationDropdown:GetValue()
         if duration then
             NM.Challenge:SendInvites(duration)
@@ -109,7 +106,6 @@ function ChallengeTab:Create()
     
     -- Update Functions
     function container:UpdateParticipants(participants, results)
-        NM:Debug("ChallengeTab: Updating participants list")
         participantsScroll:ReleaseChildren()
         
         -- Sortiere Teilnehmer nach LIV
@@ -177,7 +173,6 @@ function ChallengeTab:Create()
     
     -- Neue UpdateResults Funktion
     function container:UpdateResults(sortedResults)
-        NM:Debug("ChallengeTab: Updating results")
         if not sortedResults then return end
         
         -- Aktualisiere die Anzeige der Ergebnisse
@@ -191,7 +186,6 @@ function ChallengeTab:Create()
     
     -- UI State Updates
     function container:UpdateUIState(state, isLeader)
-        NM:Debug("ChallengeTab: Updating UI state - State: %s, IsLeader: %s", state or "nil", isLeader or "false")
         
         -- Zeige/Verstecke UI Elemente basierend auf dem Status
         if state == "inviting" then
@@ -259,86 +253,23 @@ function ChallengeTab:OnStartButtonClick()
     end
 end
 
-function ChallengeTab:UpdateParticipants(participants)
+function ChallengeTab:UpdateParticipants(participants, results)
     if not self.participantsContainer then return end
-    
-    -- Lösche bestehende Einträge
-    self.participantsContainer:ReleaseChildren()
-    
-    -- Debug Ausgabe
-    NM:Debug("ChallengeTab: Updating participants list with %d players", 
-        participants and #participants or 0)
-    
-    -- Teilnehmer sortieren und anzeigen
-    local sortedParticipants = {}
-    for playerName, data in pairs(participants) do
-        table.insert(sortedParticipants, {name = playerName, data = data})
-    end
-    
-    table.sort(sortedParticipants, function(a, b) return a.name < b.name end)
-    
-    for _, participant in ipairs(sortedParticipants) do
-        local data = participant.data
-        local playerName = participant.name
-        
-        -- Status-Icon basierend auf dem Zustand
-        local status = ""
-        if data.declined then
-            status = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:14:14|t"  -- X-Icon
-        elseif data.accepted then
-            status = "|TInterface\\RaidFrame\\ReadyCheck-Ready:14:14|t"      -- Häkchen
-        else
-            status = "|TInterface\\RaidFrame\\ReadyCheck-Waiting:14:14|t"    -- Fragezeichen
-        end
-        
-        -- Host-Tag hinzufügen wenn nötig
-        local displayName = playerName
-        if data.isHost then
-            displayName = displayName .. " |cffFFD700(Host)|r"  -- Goldene Farbe für Host
-        end
-        
-        -- LIV-Wert formatieren (falls vorhanden)
-        local livText = ""
-        if data.liv and data.liv > 0 then
-            livText = " - " .. NM.session:FormatGold(data.liv)
-        end
-        
-        -- Erstelle Label für den Teilnehmer
-        local label = AceGUI:Create("Label")
-        label:SetFullWidth(true)
-        label:SetText(string.format("%s %s%s", status, displayName, livText))
-        self.participantsContainer:AddChild(label)
-        
-        NM:Debug("ChallengeTab: Added participant %s%s with status %s", 
-            playerName,
-            data.isHost and " (Host)" or "",
-            data.declined and "declined" or (data.accepted and "accepted" or "pending"))
-    end
-    
-    -- Aktualisiere Start-Button Status
-    if NM.Challenge and NM.Challenge.leader == UnitName("player") then
-        self:UpdateStartButton(participants)
+    if NM.ui and NM.ui.challenge then
+        NM.ui.challenge:UpdateParticipants(participants, results)
     end
 end
 
-function ChallengeTab:UpdateStartButton(participants)
-    if not self.startButton then return end
-    
-    local canStart = false
-    local acceptedCount = 0
-    
-    for _, data in pairs(participants) do
-        if data.accepted then
-            acceptedCount = acceptedCount + 1
-        end
-    end
-    
-    canStart = (acceptedCount > 0)
-    self.startButton:SetDisabled(not canStart)
-    
-    NM:Debug("ChallengeTab: Updated start button - Accepted participants: %d, Can start: %s", 
-        acceptedCount, 
-        tostring(canStart))
+-- Neue Funktion für Details-Ansicht
+function ChallengeTab:ShowParticipantDetails(playerName, data)
+    -- TODO: Implementiere Details-Fenster
+    -- Hier können wir später ein Popup oder eine neue Ansicht erstellen,
+    -- die detaillierte Informationen über den Teilnehmer anzeigt:
+    -- - Gesammelte Items
+    -- - Gelootetes Gold
+    -- - LIV Entwicklung
+    -- - etc.
+    NM:Debug("Showing details for participant: %s", playerName)
 end
 
 NM.ChallengeTab = ChallengeTab

@@ -200,107 +200,99 @@ function ItemsContainer:Update()
     
     local sessionItems = {}
     
-    -- Sammle Items aus der Session
+    -- Sammle NUR Items aus der eigenen Session
     if NM.session and NM.session.items then
-        for itemID, itemData in pairs(NM.session.items) do
-            local itemName, itemLink, itemRarity, _, _, _, _, _, _, itemIcon = C_Item.GetItemInfo(itemID)
-            if itemName then
+        for itemID, quantity in pairs(NM.session.items) do
+            -- Prüfe ob quantity eine Zahl oder eine Tabelle ist
+            local actualQuantity = type(quantity) == "table" and (quantity.quantity or 0) or quantity
+            
+            if not sessionItems[itemID] then
                 sessionItems[itemID] = {
-                    id = itemID,
-                    name = itemName,
-                    link = itemLink,
-                    icon = itemIcon,
-                    quantity = itemData.quantity,
-                    value = itemData.value
+                    quantity = 0,
+                    id = itemID
                 }
             end
+            sessionItems[itemID].quantity = sessionItems[itemID].quantity + actualQuantity
         end
-    end
-    
-    -- Sammle Items aus der Challenge
-    if NM.Challenge and NM.Challenge.results then
-        local playerResults = NM.Challenge.results[UnitName("player")]
-        if playerResults and playerResults.items then
-            for itemID, itemData in pairs(playerResults.items) do
-                local itemName, itemLink, itemRarity, _, _, _, _, _, _, itemIcon = C_Item.GetItemInfo(itemID)
-                if itemName then
-                    -- Füge zur existierenden Liste hinzu oder aktualisiere
-                    if sessionItems[itemID] then
-                        sessionItems[itemID].quantity = sessionItems[itemID].quantity + itemData.quantity
-                    else
-                        sessionItems[itemID] = {
-                            id = itemID,
-                            name = itemName,
-                            link = itemLink,
-                            icon = itemIcon,
-                            quantity = itemData.quantity,
-                            value = itemData.value
-                        }
-                    end
-                end
-            end
-        end
-    end
-    
-    -- Konvertiere in Array für Sortierung
-    local itemsArray = {}
-    for _, item in pairs(sessionItems) do
-        table.insert(itemsArray, item)
-    end
-    
-    -- Sortierung anwenden
-    if self.currentSort then
-        table.sort(itemsArray, function(a, b)
-            local aValue, bValue
-            
-            if self.currentSort.column == "QUANTITY" then
-                aValue = a.quantity
-                bValue = b.quantity
-            elseif self.currentSort.column == "NAME" then
-                aValue = a.name
-                bValue = b.name
-            elseif self.currentSort.column == "VALUE" then
-                aValue = a.value * a.quantity
-                bValue = b.value * b.quantity
-            end
-            
-            if self.currentSort.ascending then
-                return aValue < bValue
-            else
-                return aValue > bValue
-            end
-        end)
     end
     
     -- Debug Ausgabe
-    NM:Debug("ItemsContainer: Updating with %d items", #itemsArray)
-    
-    -- Items zum Scrollframe hinzufügen
-    for _, item in ipairs(itemsArray) do
-        self.scrollframe:AddChild(createItemRow(item))
+    for itemID, data in pairs(sessionItems) do
+        NM:Debug("ItemsContainer: Own Item %d has quantity %d", itemID, data.quantity)
     end
     
-    -- Total aktualisieren
+    -- Konvertiere in Array für Sortierung
+    local itemsList = {}
     local totalValue = 0
-    for _, item in ipairs(itemsArray) do
-        totalValue = totalValue + (item.value * item.quantity)
+    
+    for itemID, itemData in pairs(sessionItems) do
+        local itemName, itemLink, itemRarity, _, _, _, _, _, _, itemIcon = C_Item.GetItemInfo(itemID)
+        if itemName then
+            local itemValue = select(11, C_Item.GetItemInfo(itemID)) or 0
+            table.insert(itemsList, {
+                id = itemID,
+                name = itemName,
+                link = itemLink,
+                icon = itemIcon,
+                quantity = itemData.quantity,
+                value = itemValue
+            })
+            totalValue = totalValue + (itemValue * itemData.quantity)
+        end
     end
     
-    -- Aktualisiere Total Row
-    self.totalRow:ReleaseChildren()
-    local emptyIcon = AceGUI:Create("Label")
-    emptyIcon:SetWidth(self.WINDOW_CONFIG.COLUMNS.ICON.width)
-    self.totalRow:AddChild(emptyIcon)
-
+    -- Sortiere Items
+    table.sort(itemsList, function(a, b)
+        if a.value == b.value then
+            return a.name < b.name
+        end
+        return a.value > b.value
+    end)
+    
+    -- Zeige Items an
+    for _, item in ipairs(itemsList) do
+        local row = AceGUI:Create("SimpleGroup")
+        row:SetFullWidth(true)
+        row:SetLayout("Flow")
+        
+        -- Icon
+        local icon = AceGUI:Create("Icon")
+        icon:SetImage(item.icon)
+        icon:SetImageSize(self.WINDOW_CONFIG.COLUMNS.ICON.width, self.WINDOW_CONFIG.COLUMNS.ICON.width)
+        icon:SetWidth(self.WINDOW_CONFIG.COLUMNS.ICON.width)
+        row:AddChild(icon)
+        
+        -- Name
+        local name = AceGUI:Create("InteractiveLabel")
+        name:SetText(item.link)
+        name:SetWidth(self.WINDOW_CONFIG.COLUMNS.NAME.width)
+        row:AddChild(name)
+        
+        -- Quantity
+        local qty = AceGUI:Create("Label")
+        qty:SetText(item.quantity)
+        qty:SetWidth(self.WINDOW_CONFIG.COLUMNS.QUANTITY.width)
+        row:AddChild(qty)
+        
+        -- Value
+        local value = AceGUI:Create("Label")
+        value:SetText(NM.UIFunctions:FormatGold(item.value * item.quantity))
+        value:SetWidth(self.WINDOW_CONFIG.COLUMNS.VALUE.width)
+        row:AddChild(value)
+        
+        self.scrollframe:AddChild(row)
+    end
+    
+    -- Update Total Row
     local totalLabel = AceGUI:Create("Label")
     totalLabel:SetText("Total:")
     totalLabel:SetWidth(self.WINDOW_CONFIG.COLUMNS.NAME.width)
     self.totalRow:AddChild(totalLabel)
-
+    
     local emptyQty = AceGUI:Create("Label")
     emptyQty:SetWidth(self.WINDOW_CONFIG.COLUMNS.QUANTITY.width)
     self.totalRow:AddChild(emptyQty)
-
+    
     local value = AceGUI:Create("Label")
     value:SetText(NM.UIFunctions:FormatGold(totalValue))
     value:SetWidth(self.WINDOW_CONFIG.COLUMNS.VALUE.width)
