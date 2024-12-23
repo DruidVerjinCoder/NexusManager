@@ -147,64 +147,52 @@ function Challenge:Decline()
 end
 
 function Challenge:Start(duration)
-    if not duration or duration <= 0 then
-        duration = 3600  -- Standard: 1 Stunde
-        NM:Debug("Challenge: No duration specified, using default: %d seconds", duration)
-    end
+    NM:Debug("Challenge: Attempting to start challenge")
     
-    if self.state ~= "inviting" or UnitName("player") ~= self.leader then 
-        NM:Debug("Challenge: Cannot start - invalid state or not leader (state: %s, leader: %s)", 
-                 self.state, self.leader)
-        return 
-    end
-    
-    local acceptedCount = 0
-    for name, data in pairs(self.participants) do
-        if data.accepted then
-            acceptedCount = acceptedCount + 1
-            NM:Debug("Challenge: Participant ready: %s", name)
-        end
-    end
-    
-    if acceptedCount == 0 then
-        NM:Print(L["No participants have accepted the challenge"])
+    -- Überprüfe, ob wir der Leader sind
+    if self.leader ~= UnitName("player") then
+        NM:Debug("Challenge: Cannot start - not the leader")
         return
     end
     
-    NM:Debug("Challenge: Starting with %d participants", acceptedCount)
+    -- Überprüfe, ob die Challenge bereits läuft
+    if self.state == "running" then
+        NM:Debug("Challenge: Cannot start - already running")
+        return
+    end
     
+    if not duration or duration <= 0 then
+        duration = 3600  -- Standard: 1 Stunde
+    end
+    
+    NM:Debug("Challenge: Starting challenge with duration: %d", duration)
+    
+    -- Setze Challenge-Status
     self.state = "running"
     self.startTime = time()
     self.duration = duration
     self.endTime = self.startTime + duration
-    self.results = {}
     
-    -- Initialisiere LIV-Werte für alle Teilnehmer
-    for name, data in pairs(self.participants) do
-        if data.accepted then
-            data.liv = 0
-        end
+    -- Starte lokale Session
+    if NM.session then
+        NM.session:reset()  -- Reset session first
+        NM.session.state = "running"  -- Explizit den Status setzen
+        NM:Debug("Challenge: Local session started")
+    else
+        NM:Debug("Challenge: Warning - session module not available")
     end
     
     -- Starte Live-Updates
     self:StartLiveUpdates()
     
-    -- Broadcast start message to all participants
+    -- Informiere alle Teilnehmer
     self:BroadcastMessage("START", {
-        duration = duration,
         startTime = self.startTime,
-        leader = self.leader,
-        participants = self.participants
+        duration = self.duration,
+        endTime = self.endTime
     })
     
-    NM.session:start()
-    
-    -- Set timer for challenge end
-    C_Timer.After(duration, function()
-        if self.state == "running" then
-            self:Stop()
-        end
-    end)
+    NM:Print(L["Challenge started!"])
 end
 
 function Challenge:Stop()
@@ -212,29 +200,18 @@ function Challenge:Stop()
     
     self.state = "finished"
     
-    -- Stoppe Live-Updates
-    if self.updateTimer then
-        self.updateTimer:Cancel()
-        self.updateTimer = nil
+    -- Stoppe lokale Session
+    if NM.session then
+        NM.session:Stop()
     end
     
-    -- Sammle die Ergebnisse vom Session
-    local results = {
-        player = UnitName("player"),
-        liv = NM.session.liv,
-        items = NM.session.itemsLooted,
-        totalGold = NM.session.totalGold,
-        lootedGold = NM.session.lootedGold
-    }
+    -- Zeige Endergebnisse
+    self:ShowFinalResults()
     
-    -- Sende die Ergebnisse an alle
-    self:BroadcastMessage("RESULT", results)
-    
-    -- Füge eigene Ergebnisse hinzu
-    self:AddResult(UnitName("player"), results)
-    
-    NM:Debug("Challenge: Stopped and sent results - LIV: %d, Items: %d", 
-        results.liv or 0, #(results.items or {}))
+    -- Informiere alle Teilnehmer
+    self:BroadcastMessage("STOP", {
+        endTime = time()
+    })
 end
 
 function Challenge:AddResult(player, results)
@@ -327,6 +304,38 @@ function Challenge:HandleMessage(sender, message)
         self.state or "none"
     )
     
+    if data.type == "START" then
+        NM:Debug("Challenge: Processing START message from %s", sender)
+        StaticPopup_Hide("NEXUSMANAGER_CHALLENGE_INVITE")
+        
+        -- Entferne alle pending Teilnehmer
+        for name, participant in pairs(self.participants) do
+            if not participant.accepted then
+                self.participants[name] = nil
+            end
+        end
+        
+        -- Setze Challenge-Status
+        self.state = "running"
+        self.startTime = data.data.startTime
+        self.duration = data.data.duration
+        self.endTime = data.data.endTime
+        
+        -- Starte lokale Session
+        if NM.session then
+            NM.session:reset()  -- Reset session first
+            NM.session.state = "running"  -- Explizit den Status setzen
+            NM:Debug("Challenge: Started local session for participant")
+        else
+            NM:Debug("Challenge: Failed to start local session - session module not available")
+        end
+        
+        -- Starte Live-Updates
+        self:StartLiveUpdates()
+        
+        NM:Print(L["Challenge started!"])
+    end
+    
     if data.type == "INVITE" then
         NM:Debug("Challenge: Received invite from %s", sender)
         self.state = "pending"
@@ -383,12 +392,6 @@ function Challenge:HandleMessage(sender, message)
         if NM.ui and NM.ui.challenge then
             NM.ui.challenge:UpdateParticipants(self.participants)
         end
-        
-    elseif data.type == "START" then
-        self.state = "running"
-        self.startTime = time()
-        self:StartLiveUpdates()
-        NM:Print(L["Challenge started!"])
         
     elseif data.type == "LIVE_UPDATE" then
         if self.state == "running" then

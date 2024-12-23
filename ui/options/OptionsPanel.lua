@@ -97,12 +97,8 @@ local recipeOptionsList = {
 }
 
 function OptionsPanel:OnInitialize()
-    -- Debug-Ausgabe
-    print("NexusManager: Starting Config Initialization")
-
     -- Warte auf DB-Initialisierung
     if not NM.db or not NM.db.profile then
-        print("NexusManager: Warning - Database not ready")
         return
     end
 
@@ -119,26 +115,22 @@ function OptionsPanel:OnInitialize()
     }
 
     -- Debug-Ausgabe der DB-Struktur
-    print("NexusManager: DB Profile Structure:")
     for k,v in pairs(NM.db.profile) do
         print(" -", k, type(v))
     end
 
     -- Registriere die Optionen
-    print("NexusManager: Registering options")
     AceConfigRegistry:RegisterOptionsTable("NexusManager", options)
     
     -- Erstelle die Optionspanels
     self.optionsFrame = AceConfigDialog:AddToBlizOptions("NexusManager", "NexusManager")
     
     -- Debug-Ausgabe
-    print("NexusManager: Options initialization complete")
 end
 
 function OptionsPanel:createOptionsTables(name, optionsList, profilePath, descriptionText)
     -- Stelle sicher, dass der Pfad existiert
     if not profilePath then
-        print("Warning: profilePath is nil for", name)
         profilePath = {}
     end
 
