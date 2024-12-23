@@ -96,7 +96,10 @@ function session:itemLooted(event, message)
    
    self:addItem(itemID, quantity)
    self.itemsLooted[itemID] = (self.itemsLooted[itemID] or 0) + quantity
-   NM:Log(string.format("Looted: %s x%d", itemLink, quantity))
+   NM:Debug("Session: Looted %s x%d, triggering update", itemLink, quantity)
+   
+   -- Trigger Challenge Update when items are looted
+   self:SendChallengeUpdate()
    
    if NM.ItemsContainer then
       NM.ItemsContainer:Update()
@@ -239,13 +242,17 @@ function session:moneyLooted(event, msg)
 end
 
 function session:moneyChanged()
-   if self.state ~= "running" then return end
+   if self.state ~= "running" then 
+      NM:Debug("Session: Money changed ignored - Session not running")
+      return 
+   end
    
    local newMoney = GetMoney()
    local moneyDiff = newMoney - self.currentGold
    
    if moneyDiff > 0 then
       self.totalGold = self.totalGold + moneyDiff
+      NM:Debug("Session: Money increased by %d copper, triggering update", moneyDiff)
       -- Challenge Update
       self:SendChallengeUpdate()
    end
@@ -255,24 +262,41 @@ end
 
 -- Neue Funktion für Challenge Updates
 function session:SendChallengeUpdate()
-   if self.state == "running" and NM.Challenge and NM.Challenge.state == "running" then
-      local currentData = {
-         player = UnitName("player"),
-         liv = self.liv,
-         items = self.itemsLooted,
-         totalGold = self.totalGold,
-         lootedGold = self.lootedGold
-      }
-      
-      NM:Debug("Session: Sending Challenge update - LIV: %s", tostring(self.liv))
-      
-      -- Sende Update an alle Teilnehmer
+   if not self.state == "running" then
+      NM:Debug("Session: Not sending update - Session not running (State: %s)", tostring(self.state))
+      return
+   end
+   
+   if not NM.Challenge then
+      NM:Debug("Session: Not sending update - Challenge module not available")
+      return
+   end
+   
+   if not NM.Challenge.state == "running" then
+      NM:Debug("Session: Not sending update - Challenge not running (State: %s)", tostring(NM.Challenge.state))
+      return
+   end
+
+   local currentData = {
+      player = UnitName("player"),
+      liv = self.liv,
+      items = self.itemsLooted,
+      totalGold = self.totalGold,
+      lootedGold = self.lootedGold
+   }
+   
+   NM:Debug("Session: Preparing Challenge update - Player: %s, LIV: %s, Items: %d", 
+      currentData.player,
+      tostring(currentData.liv),
+      currentData.items and #currentData.items or 0
+   )
+   
+   -- Sende Update an alle Teilnehmer
+   if NM.Challenge.BroadcastMessage then
       NM.Challenge:BroadcastMessage("LIVE_UPDATE", currentData)
-      
-      -- Aktualisiere lokale Anzeige
-      if NM.Challenge.leader == UnitName("player") then
-         NM.Challenge:UpdateLiveResult(UnitName("player"), currentData)
-      end
+      NM:Debug("Session: Sent LIVE_UPDATE to Challenge")
+   else
+      NM:Debug("Session: Failed to send update - BroadcastMessage not available")
    end
 end
 

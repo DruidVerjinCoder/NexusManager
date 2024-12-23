@@ -142,7 +142,7 @@ function NM:OnInitialize()
     -- Default Einstellungen
     local defaults = {
         profile = {
-            debug = false,  -- Debug-Modus standardmäßig aus
+            debug = true,  -- Debug-Modus standardmäßig aus
             -- ... andere defaults ...
         }
     }
