@@ -163,7 +163,7 @@ function ChallengeTab:Create()
             
             -- LIV (vereinfacht)
             local livLabel = AceGUI:Create("Label")
-            livLabel:SetText(tostring(participant.liv))
+            livLabel:SetText(NM.UIFunctions:FormatGold(participant.liv))
             livLabel:SetWidth(100)
             playerRow:AddChild(livLabel)
             
