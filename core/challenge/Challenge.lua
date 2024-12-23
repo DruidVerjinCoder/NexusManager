@@ -84,64 +84,50 @@ function Challenge:Reset()
 end
 
 function Challenge:Accept()
-    if not self.pendingInvites[UnitName("player")] then 
-        NM:Debug("Challenge: Cannot accept - no pending invite found")
-        return 
+    if not self.state == "pending" then return end
+    
+    NM:Debug("Challenge: Accepting challenge")
+    
+    -- Sende Accept-Nachricht an den Leader
+    self:BroadcastMessage("ACCEPT", {
+        player = UnitName("player")
+    })
+    
+    -- Aktualisiere lokalen Status
+    if not self.participants[UnitName("player")] then
+        self.participants[UnitName("player")] = {accepted = false, online = true}
     end
+    self.participants[UnitName("player")].accepted = true
     
-    NM:Debug("Challenge: Accepting challenge from %s", self.leader)
-    self.state = "pending"
-    self.participants[UnitName("player")] = {accepted = true, online = true}
-    
-    -- Finde den Leader in der BattleNet-Freundesliste
-    for i = 1, BNGetNumFriends() do
-        local accountInfo = C_BattleNet.GetFriendAccountInfo(i)
-        if accountInfo and accountInfo.gameAccountInfo then
-            local playerName = accountInfo.gameAccountInfo.characterName
-            if playerName == self.leader then
-                -- Sende Accept-Nachricht direkt an den Leader
-                local presenceID = accountInfo.gameAccountInfo.gameAccountID
-                if presenceID then
-                    NM:Debug("Challenge: Found leader %s with presenceID %s", playerName, presenceID)
-                    BNSendGameData(presenceID, "NM_CHALLENGE", AceSerializer:Serialize({
-                        type = "ACCEPT",
-                        data = {
-                            player = UnitName("player")
-                        },
-                        sender = UnitName("player"),
-                        addon = "NexusManager",
-                        challenge = true
-                    }))
-                    NM:Debug("Challenge: Sent accept message to leader")
-                    break
-                end
-            end
+    -- UI Update
+    if NM.ui and NM.ui.challenge then
+        NM.ui.challenge:UpdateParticipants(self.participants)
+        if NM.ui.challenge.SetStartButtonEnabled then
+            NM.ui.challenge:SetStartButtonEnabled(false)
         end
     end
     
-    -- Aktualisiere die UI für den Empfänger
-    if NM.ui.challenge then
-        NM.ui.challenge:UpdateParticipants(self.participants)
-        NM.ui.challenge:SetStartButtonEnabled(false)
-    end
-    
-    NM:Print(L["Challenge accepted"])
+    NM:Print(L["You accepted the challenge"])
 end
 
 function Challenge:Decline()
-    if not self.pendingInvites[UnitName("player")] then 
-        NM:Debug("Challenge: Cannot decline - no pending invite found")
-        return 
-    end
+    if not self.state == "pending" then return end
     
-    NM:Debug("Challenge: Declining challenge from %s", self.leader)
+    NM:Debug("Challenge: Declining challenge")
     
+    -- Sende Decline-Nachricht an den Leader
     self:BroadcastMessage("DECLINE", {
         player = UnitName("player")
     })
     
-    self:Reset()
-    NM:Print(L["Challenge declined"])
+    -- Entferne sich selbst aus der Teilnehmerliste
+    self.participants[UnitName("player")] = nil
+    self.pendingInvites[UnitName("player")] = nil
+    
+    -- Reset state
+    self.state = nil
+    
+    NM:Print(L["You declined the challenge"])
 end
 
 function Challenge:Start(duration)
@@ -176,6 +162,13 @@ function Challenge:Start(duration)
     self.duration = duration
     self.endTime = self.startTime + duration
     self.results = {}
+    
+    -- Initialisiere LIV-Werte für alle Teilnehmer
+    for name, data in pairs(self.participants) do
+        if data.accepted then
+            data.liv = 0
+        end
+    end
     
     -- Starte Live-Updates
     self:StartLiveUpdates()
@@ -257,26 +250,33 @@ function Challenge:BroadcastMessage(type, data, specificID)
     
     local serialized = AceSerializer:Serialize(message)
     
+    -- Wenn ein spezifischer Spieler angegeben ist
     if specificID then
         local accountInfo = C_BattleNet.GetFriendAccountInfo(specificID)
         if accountInfo and accountInfo.gameAccountInfo then
             local presenceID = accountInfo.gameAccountInfo.gameAccountID
             if presenceID then
                 BNSendGameData(presenceID, "NM_CHALLENGE", serialized)
-                NM:Debug("Challenge: Sent message to %s", accountInfo.gameAccountInfo.characterName)
+                NM:Debug("Challenge: Sent message to specific player: %s", accountInfo.gameAccountInfo.characterName)
             end
         end
-    else
-        for i = 1, BNGetNumFriends() do
-            local accountInfo = C_BattleNet.GetFriendAccountInfo(i)
-            if accountInfo and accountInfo.gameAccountInfo and 
-               accountInfo.gameAccountInfo.isOnline and 
-               accountInfo.gameAccountInfo.clientProgram == "WoW" then
-                
+        return
+    end
+    
+    -- Sende an alle Teilnehmer
+    for i = 1, BNGetNumFriends() do
+        local accountInfo = C_BattleNet.GetFriendAccountInfo(i)
+        if accountInfo and accountInfo.gameAccountInfo and 
+           accountInfo.gameAccountInfo.isOnline and 
+           accountInfo.gameAccountInfo.clientProgram == "WoW" then
+            
+            local playerName = accountInfo.gameAccountInfo.characterName
+            -- Sende nur an Teilnehmer der Challenge
+            if self.participants[playerName] then
                 local presenceID = accountInfo.gameAccountInfo.gameAccountID
                 if presenceID then
                     BNSendGameData(presenceID, "NM_CHALLENGE", serialized)
-                    NM:Debug("Challenge: Sent message to %s", accountInfo.gameAccountInfo.characterName)
+                    NM:Debug("Challenge: Sent message to participant: %s", playerName)
                 end
             end
         end
@@ -284,15 +284,23 @@ function Challenge:BroadcastMessage(type, data, specificID)
 end
 
 function Challenge:HandleMessage(sender, message)
-    NM:Debug("Challenge: Received message from %s", sender)
-    
     local success, data = AceSerializer:Deserialize(message)
     if not success then 
         NM:Debug("Challenge: Failed to deserialize message")
         return 
     end
     
-    NM:Debug("Challenge: Message type: %s", data.type)
+    if data.type == "LIVE_UPDATE" then
+        if self.state == "running" then
+            NM:Debug("Challenge: Received update from %s - LIV: %s", 
+                data.data.player, tostring(data.data.liv))
+                
+            -- Jeder aktualisiert seine lokale Anzeige
+            self:UpdateLiveResult(data.data.player, data.data)
+        end
+    end
+    
+    NM:Debug("Challenge: Received message type %s from %s", data.type, sender)
     
     if data.type == "INVITE" then
         NM:Debug("Challenge: Received invite from %s", data.data.leader)
@@ -300,10 +308,11 @@ function Challenge:HandleMessage(sender, message)
         -- Speichere die Challenge-Informationen
         self.state = "pending"
         self.leader = data.data.leader
+        self.participants = data.data.participants or {}
         self.pendingInvites[UnitName("player")] = true
         
         -- Dialog-Optionen erstellen
-        local dialog = {
+        StaticPopupDialogs["NEXUSMANAGER_CHALLENGE_INVITE"] = {
             text = string.format(L["Challenge invitation from %s"], data.data.leader),
             button1 = L["Accept"],
             button2 = L["Decline"],
@@ -325,17 +334,21 @@ function Challenge:HandleMessage(sender, message)
             end,
         }
         
-        StaticPopupDialogs["NEXUSMANAGER_CHALLENGE_INVITE"] = dialog
+        -- Zeige den Dialog
         StaticPopup_Show("NEXUSMANAGER_CHALLENGE_INVITE")
         
-        if NM.ui.challenge then
+        -- UI Update nur wenn UI existiert
+        if NM.ui and NM.ui.challenge then
             NM.ui.challenge:UpdateParticipants(self.participants)
-            NM.ui.challenge:SetStartButtonEnabled(false)
+            if NM.ui.challenge.SetStartButtonEnabled then
+                NM.ui.challenge:SetStartButtonEnabled(false)
+            end
         end
         
     elseif data.type == "ACCEPT" then
         NM:Debug("Challenge: Received accept from %s", data.data.player)
         if self.leader == UnitName("player") then
+            -- Leader aktualisiert die Teilnehmerliste
             if not self.participants[data.data.player] then
                 self.participants[data.data.player] = {accepted = false, online = true}
             end
@@ -348,17 +361,26 @@ function Challenge:HandleMessage(sender, message)
             
             NM:Print(string.format(L["%s accepted the challenge"], data.data.player))
             
-            if NM.ui.challenge then
+            if NM.ui and NM.ui.challenge then
                 NM.ui.challenge:UpdateParticipants(self.participants)
             end
         end
         
     elseif data.type == "DECLINE" then
+        NM:Debug("Challenge: Received decline from %s", data.data.player)
         if self.leader == UnitName("player") then
+            -- Leader entfernt den Spieler aus der Liste
             self.participants[data.data.player] = nil
             self.pendingInvites[data.data.player] = nil
-            NM:Print(data.data.player .. " " .. L["declined the challenge"])
-            if NM.ui.challenge then
+            
+            -- Broadcast updated participants list to all
+            self:BroadcastMessage("UPDATE_PARTICIPANTS", {
+                participants = self.participants
+            })
+            
+            NM:Print(string.format(L["%s declined the challenge"], data.data.player))
+            
+            if NM.ui and NM.ui.challenge then
                 NM.ui.challenge:UpdateParticipants(self.participants)
             end
         end
@@ -410,14 +432,18 @@ function Challenge:HandleMessage(sender, message)
         end
     elseif data.type == "UPDATE_PARTICIPANTS" then
         NM:Debug("Challenge: Received participants update")
+        -- Alle Teilnehmer aktualisieren ihre Liste
         self.participants = data.data.participants
-        if NM.ui.challenge then
+        if NM.ui and NM.ui.challenge then
             NM.ui.challenge:UpdateParticipants(self.participants)
         end
-    elseif data.type == "LIVE_UPDATE" then
-        if self.state == "running" then
-            NM:Debug("Challenge: Received live update from %s", data.data.player)
-            self:UpdateLiveResult(data.data.player, data.data)
+    elseif data.type == "UPDATE_RESULTS" then
+        -- Alle Teilnehmer aktualisieren ihre Ergebnisse
+        if self.state == "running" and data.data.results then
+            self.results = data.data.results
+            if NM.ui.challenge then
+                NM.ui.challenge:UpdateResults(self.results)
+            end
         end
     end
 end
@@ -429,18 +455,18 @@ function Challenge:ShowFinalResults()
     
     -- Berechne Gesamtwerte und finde den Gewinner
     for player, result in pairs(self.results) do
-        totalLiv = totalLiv + (result.liv or 0)
-        if result.liv > maxLiv then
-            maxLiv = result.liv
+        totalLiv = totalLiv + (result.originalLiv or 0)
+        if result.originalLiv > maxLiv then
+            maxLiv = result.originalLiv
             winner = player
         end
     end
     
     -- Zeige Zusammenfassung
     NM:Print("Challenge beendet!")
-    NM:Print(string.format(L["Total LIV: %d"], totalLiv))
+    NM:Print(string.format(L["Total LIV: %s"], NM.session:FormatGold(totalLiv)))
     if winner then
-        NM:Print(string.format(L["Winner: %s with %d LIV"], winner, maxLiv))
+        NM:Print(string.format(L["Winner: %s with %s LIV"], winner, NM.session:FormatGold(maxLiv)))
     end
 end
 
@@ -513,16 +539,77 @@ function Challenge:UpdateLiveResult(player, data)
         self.results[player] = {}
     end
     
+    -- Speichere Original und formatierte Werte
+    local formattedLiv = NM.session:FormatGold(data.liv or 0)
+    
     self.results[player] = {
-        liv = data.liv or 0,
+        liv = formattedLiv,
+        originalLiv = data.liv or 0,
         items = data.items or {},
-        totalGold = data.totalGold or 0,
-        lootedGold = data.lootedGold or 0
+        totalGold = NM.session:FormatGold(data.totalGold or 0),
+        lootedGold = NM.session:FormatGold(data.lootedGold or 0)
     }
     
-    if NM.ui.challenge then
-        NM.ui.challenge:UpdateResults(self.results)
+    -- Aktualisiere auch die Teilnehmerliste
+    if self.participants[player] then
+        self.participants[player].liv = data.liv
     end
     
-    NM:Debug("Challenge: Live update from %s - LIV: %d", player, data.liv or 0)
+    -- Erstelle sortierte Liste
+    local sortedResults = {}
+    for name, result in pairs(self.results) do
+        if self.participants[name] and self.participants[name].accepted then
+            table.insert(sortedResults, {
+                player = name,
+                liv = result.liv,
+                originalLiv = result.originalLiv,
+                items = result.items,
+                totalGold = result.totalGold,
+                lootedGold = result.lootedGold
+            })
+        end
+    end
+    
+    -- Sortiere nach originalLiv
+    table.sort(sortedResults, function(a, b)
+        return (a.originalLiv or 0) > (b.originalLiv or 0)
+    end)
+    
+    -- Update UI
+    if NM.ui.challenge then
+        NM.ui.challenge:UpdateParticipants(self.participants)
+        NM.ui.challenge:UpdateResults(sortedResults)
+    end
+    
+    NM:Debug("Challenge: Updated result for %s - LIV: %s (Original: %d)", 
+        player, formattedLiv, data.liv or 0)
+end 
+
+function Challenge:SendLiveUpdate(player, livData)
+    NM:Debug("Challenge: Sending live update for player: %s, LIV: %s", 
+        player, tostring(livData.liv))
+    
+    -- Finde den Spieler in der BattleNet-Freundesliste
+    for i = 1, BNGetNumFriends() do
+        local accountInfo = C_BattleNet.GetFriendAccountInfo(i)
+        if accountInfo and accountInfo.gameAccountInfo then
+            local playerName = accountInfo.gameAccountInfo.characterName
+            if self.participants[playerName] then
+                local presenceID = accountInfo.gameAccountInfo.gameAccountID
+                if presenceID then
+                    local message = {
+                        type = "LIVE_UPDATE",
+                        data = livData,
+                        sender = player,
+                        addon = "NexusManager",
+                        challenge = true
+                    }
+                    
+                    local serialized = AceSerializer:Serialize(message)
+                    BNSendGameData(presenceID, "NM_CHALLENGE", serialized)
+                    NM:Debug("Challenge: Sent live update to: %s", playerName)
+                end
+            end
+        end
+    end
 end 

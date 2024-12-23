@@ -62,28 +62,6 @@ function ChallengeTab:Create()
     participantsScroll:SetHeight(200)
     participantsContainer:AddChild(participantsScroll)
     
-    -- Accept/Decline Buttons (für eingeladene Spieler)
-    local responseContainer = AceGUI:Create("SimpleGroup")
-    responseContainer:SetLayout("Flow")
-    responseContainer:SetFullWidth(true)
-    participantsContainer:AddChild(responseContainer)
-    
-    local acceptButton = AceGUI:Create("Button")
-    acceptButton:SetText(L["Accept"])
-    acceptButton:SetWidth(self.WINDOW_CONFIG.BUTTON_WIDTH)
-    acceptButton:SetCallback("OnClick", function()
-        NM.Challenge:Accept()
-    end)
-    responseContainer:AddChild(acceptButton)
-    
-    local declineButton = AceGUI:Create("Button")
-    declineButton:SetText(L["Decline"])
-    declineButton:SetWidth(self.WINDOW_CONFIG.BUTTON_WIDTH)
-    declineButton:SetCallback("OnClick", function()
-        NM.Challenge:Decline()
-    end)
-    responseContainer:AddChild(declineButton)
-    
     -- Challenge Control Buttons nebeneinander
     -- Start Button zuerst erstellen
     local startButton = AceGUI:Create("Button")
@@ -222,8 +200,8 @@ function ChallengeTab:Create()
             end
             participantsContainer.frame:Show()
             
-            -- Response Buttons nur für Nicht-Leader
-            responseContainer.frame:SetShown(not isLeader)
+            -- Response Buttons werden nicht mehr benötigt
+            -- responseContainer.frame:SetShown(not isLeader)
             
             -- UI Status
             durationDropdown:SetDisabled(true)
@@ -245,7 +223,6 @@ function ChallengeTab:Create()
                 scrollContainer:AddChild(participantsContainer)
             end
             participantsContainer.frame:Show()
-            responseContainer.frame:Hide()
             durationDropdown:SetDisabled(true)
             inviteButton:SetDisabled(true)
             startButton:SetDisabled(true)
@@ -256,7 +233,6 @@ function ChallengeTab:Create()
                 participantsContainer.parent:Release(participantsContainer)
             end
             participantsContainer.frame:Hide()
-            responseContainer.frame:Hide()
             durationDropdown:SetDisabled(false)
             inviteButton:SetDisabled(false)
             startButton:SetDisabled(true)

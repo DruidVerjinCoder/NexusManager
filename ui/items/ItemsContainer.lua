@@ -199,9 +199,21 @@ function ItemsContainer:Update()
     self.scrollframe:ReleaseChildren()
     
     local sessionItems = {}
-    -- Hole Items unabhängig vom Session-Status
-    if NM.session then
-        sessionItems = NM.session.itemsLooted
+    -- Hole Items aus der Session und konvertiere sie in das richtige Format
+    if NM.session and NM.session.items then
+        for itemID, itemData in pairs(NM.session.items) do
+            local itemName, itemLink, itemRarity, _, _, _, _, _, _, itemIcon = C_Item.GetItemInfo(itemID)
+            if itemName then
+                table.insert(sessionItems, {
+                    id = itemID,
+                    name = itemName,
+                    link = itemLink,
+                    icon = itemIcon,
+                    quantity = itemData.quantity,
+                    value = itemData.value
+                })
+            end
+        end
     end
     
     -- Sortierung anwenden
@@ -227,6 +239,9 @@ function ItemsContainer:Update()
             end
         end)
     end
+    
+    -- Debug Ausgabe
+    NM:Debug("ItemsContainer: Updating with %d items", #sessionItems)
     
     -- Items zum Scrollframe hinzufügen
     for _, item in ipairs(sessionItems) do

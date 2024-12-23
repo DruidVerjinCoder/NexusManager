@@ -139,24 +139,8 @@ function session:addItem(itemID, quantity)
       elseif quality == 4 then self.epic = self.epic + quantity end
    end
    
-   -- Challenge Update nach LIV Änderung
-   if self.state == "running" and NM.Challenge and NM.Challenge.state == "running" then
-      local currentData = {
-         player = UnitName("player"),
-         liv = self.liv,
-         items = self.itemsLooted,
-         totalGold = self.totalGold,
-         lootedGold = self.lootedGold
-      }
-      
-      -- Sende immer ein Update, unabhängig ob Leader oder nicht
-      NM.Challenge:BroadcastMessage("LIVE_UPDATE", currentData)
-      
-      -- Leader aktualisiert auch seine eigenen Daten direkt
-      if NM.Challenge.leader == UnitName("player") then
-         NM.Challenge:UpdateLiveResult(UnitName("player"), currentData)
-      end
-   end
+   -- Challenge Update
+   self:SendChallengeUpdate()
 end
 
 -- Session State Management
@@ -264,26 +248,34 @@ function session:moneyChanged()
    
    if moneyDiff > 0 then
       self.totalGold = self.totalGold + moneyDiff
-      
-      -- Wenn wir in einer Challenge sind, sende Update
-      if NM.Challenge and NM.Challenge.state == "running" then
-         local currentData = {
-            player = UnitName("player"),
-            liv = self.liv,
-            items = self.itemsLooted,
-            totalGold = self.totalGold,
-            lootedGold = self.lootedGold
-         }
-         
-         if NM.Challenge.leader == UnitName("player") then
-            NM.Challenge:UpdateLiveResult(UnitName("player"), currentData)
-         else
-            NM.Challenge:BroadcastMessage("LIVE_UPDATE", currentData)
-         end
-      end
+      -- Challenge Update
+      self:SendChallengeUpdate()
    end
    
    self.currentGold = newMoney
+end
+
+-- Neue Funktion für Challenge Updates
+function session:SendChallengeUpdate()
+   if self.state == "running" and NM.Challenge and NM.Challenge.state == "running" then
+      local currentData = {
+         player = UnitName("player"),
+         liv = self.liv,
+         items = self.itemsLooted,
+         totalGold = self.totalGold,
+         lootedGold = self.lootedGold
+      }
+      
+      NM:Debug("Session: Sending Challenge update - LIV: %s", tostring(self.liv))
+      
+      -- Sende Update an alle Teilnehmer
+      NM.Challenge:BroadcastMessage("LIVE_UPDATE", currentData)
+      
+      -- Aktualisiere lokale Anzeige
+      if NM.Challenge.leader == UnitName("player") then
+         NM.Challenge:UpdateLiveResult(UnitName("player"), currentData)
+      end
+   end
 end
 
 NM.session = session
