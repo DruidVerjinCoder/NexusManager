@@ -31,6 +31,13 @@ function Challenge:SendInvites()
     self.participants = {}
     self.pendingInvites = {}
     
+    -- Host als ersten Teilnehmer hinzufügen
+    self.participants[self.leader] = {
+        accepted = true,  -- Host automatisch akzeptiert
+        online = true,
+        liv = 0
+    }
+    
     NM:Debug("Challenge: Sending invites as leader: %s", self.leader)
     
     local invitedCount = 0
@@ -38,7 +45,8 @@ function Challenge:SendInvites()
         local accountInfo = C_BattleNet.GetFriendAccountInfo(i)
         if accountInfo and accountInfo.gameAccountInfo and 
            accountInfo.gameAccountInfo.isOnline and 
-           accountInfo.gameAccountInfo.clientProgram == "WoW" then
+           accountInfo.gameAccountInfo.clientProgram == "WoW" and
+           accountInfo.gameAccountInfo.characterName ~= self.leader then  -- Nicht sich selbst einladen
             
             local playerName = accountInfo.gameAccountInfo.characterName
             self.pendingInvites[playerName] = true
@@ -61,6 +69,7 @@ function Challenge:SendInvites()
         self:Reset()
     end
     
+    -- UI Update für den Host
     if NM.ui.challenge then
         NM.ui.challenge:UpdateParticipants(self.participants)
     end
@@ -308,14 +317,19 @@ function Challenge:HandleMessage(sender, message)
         NM:ShowChallengeInvite(sender, data.data)
         
     elseif data.type == "ACCEPT" then
-        if self.leader == UnitName("player") then
-            -- Leader aktualisiert die Teilnehmerliste
-            if self.participants[data.data.player] then
-                self.participants[data.data.player].accepted = true
-                -- Broadcast den neuen Status an alle
-                self:BroadcastMessage("UPDATE_PARTICIPANTS", {
-                    participants = self.participants
-                })
+        NM:Debug("Challenge: Received accept from %s", data.data.player)
+        -- Aktualisiere die Teilnehmerliste
+        if self.participants[data.data.player] then
+            self.participants[data.data.player].accepted = true
+            
+            -- Broadcast den neuen Status an alle
+            self:BroadcastMessage("UPDATE_PARTICIPANTS", {
+                participants = self.participants
+            })
+            
+            -- UI Update
+            if NM.ui and NM.ui.challenge then
+                NM.ui.challenge:UpdateParticipants(self.participants)
             end
         end
         
