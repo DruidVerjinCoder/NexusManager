@@ -131,31 +131,33 @@ function ChallengeTab:Create()
             rankLabel:SetWidth(30)
             playerRow:AddChild(rankLabel)
             
-            -- Status Icon (kleinere Größe)
-            local statusIcon = AceGUI:Create("Icon")
-            statusIcon:SetWidth(12)
-            statusIcon:SetHeight(12)
-            statusIcon:SetImageSize(12, 12)
-            
-            local iconPath
-            if not participant.data.online then
-                iconPath = ChallengeTab.ICONS.OFFLINE
-            elseif participant.data.declined then
-                iconPath = ChallengeTab.ICONS.DECLINED
-            elseif participant.data.accepted then
-                iconPath = ChallengeTab.ICONS.ACCEPTED
-            else
-                iconPath = ChallengeTab.ICONS.PENDING
+            -- Status Icon nur anzeigen, wenn Challenge noch nicht gestartet ist
+            if NM.Challenge.state ~= "running" then
+                local statusIcon = AceGUI:Create("Icon")
+                statusIcon:SetWidth(12)
+                statusIcon:SetHeight(12)
+                statusIcon:SetImageSize(12, 12)
+                
+                local iconPath
+                if not participant.data.online then
+                    iconPath = ChallengeTab.ICONS.OFFLINE
+                elseif participant.data.declined then
+                    iconPath = ChallengeTab.ICONS.DECLINED
+                elseif participant.data.accepted then
+                    iconPath = ChallengeTab.ICONS.ACCEPTED
+                else
+                    iconPath = ChallengeTab.ICONS.PENDING
+                end
+                
+                statusIcon:SetImage(iconPath)
+                playerRow:AddChild(statusIcon)
             end
-            
-            statusIcon:SetImage(iconPath)
-            playerRow:AddChild(statusIcon)
             
             -- Spielername (mit Host-Markierung)
             local nameLabel = AceGUI:Create("Label")
             local displayName = participant.name
             if participant.data.isHost then
-                displayName = displayName .. " |cffFFD700(Host)|r"  -- Goldene Farbe für Host
+                displayName = displayName .. " |cffFFD700(Host)|r"
             end
             nameLabel:SetText(displayName)
             nameLabel:SetWidth(150)
