@@ -88,8 +88,6 @@ end
 
 -- Item Handling
 function session:itemLooted(event, message)
-   if self.state ~= "running" then return end
-   
    local itemLink, quantity = self:parseItemLoot(message)
    if not itemLink then return end
    

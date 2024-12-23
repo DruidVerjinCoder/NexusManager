@@ -199,26 +199,58 @@ function ItemsContainer:Update()
     self.scrollframe:ReleaseChildren()
     
     local sessionItems = {}
-    -- Hole Items aus der Session und konvertiere sie in das richtige Format
+    
+    -- Sammle Items aus der Session
     if NM.session and NM.session.items then
         for itemID, itemData in pairs(NM.session.items) do
             local itemName, itemLink, itemRarity, _, _, _, _, _, _, itemIcon = C_Item.GetItemInfo(itemID)
             if itemName then
-                table.insert(sessionItems, {
+                sessionItems[itemID] = {
                     id = itemID,
                     name = itemName,
                     link = itemLink,
                     icon = itemIcon,
                     quantity = itemData.quantity,
                     value = itemData.value
-                })
+                }
             end
         end
     end
     
+    -- Sammle Items aus der Challenge
+    if NM.Challenge and NM.Challenge.results then
+        local playerResults = NM.Challenge.results[UnitName("player")]
+        if playerResults and playerResults.items then
+            for itemID, itemData in pairs(playerResults.items) do
+                local itemName, itemLink, itemRarity, _, _, _, _, _, _, itemIcon = C_Item.GetItemInfo(itemID)
+                if itemName then
+                    -- Füge zur existierenden Liste hinzu oder aktualisiere
+                    if sessionItems[itemID] then
+                        sessionItems[itemID].quantity = sessionItems[itemID].quantity + itemData.quantity
+                    else
+                        sessionItems[itemID] = {
+                            id = itemID,
+                            name = itemName,
+                            link = itemLink,
+                            icon = itemIcon,
+                            quantity = itemData.quantity,
+                            value = itemData.value
+                        }
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Konvertiere in Array für Sortierung
+    local itemsArray = {}
+    for _, item in pairs(sessionItems) do
+        table.insert(itemsArray, item)
+    end
+    
     -- Sortierung anwenden
     if self.currentSort then
-        table.sort(sessionItems, function(a, b)
+        table.sort(itemsArray, function(a, b)
             local aValue, bValue
             
             if self.currentSort.column == "QUANTITY" then
@@ -241,20 +273,20 @@ function ItemsContainer:Update()
     end
     
     -- Debug Ausgabe
-    NM:Debug("ItemsContainer: Updating with %d items", #sessionItems)
+    NM:Debug("ItemsContainer: Updating with %d items", #itemsArray)
     
     -- Items zum Scrollframe hinzufügen
-    for _, item in ipairs(sessionItems) do
+    for _, item in ipairs(itemsArray) do
         self.scrollframe:AddChild(createItemRow(item))
     end
     
     -- Total aktualisieren
     local totalValue = 0
-    for _, item in ipairs(sessionItems) do
+    for _, item in ipairs(itemsArray) do
         totalValue = totalValue + (item.value * item.quantity)
     end
     
-    -- Nur den Inhalt der Total Row aktualisieren
+    -- Aktualisiere Total Row
     self.totalRow:ReleaseChildren()
     local emptyIcon = AceGUI:Create("Label")
     emptyIcon:SetWidth(self.WINDOW_CONFIG.COLUMNS.ICON.width)
