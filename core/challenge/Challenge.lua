@@ -33,8 +33,10 @@ function Challenge:SendInvites()
     
     -- Host als ersten Teilnehmer hinzufügen
     self.participants[self.leader] = {
-        accepted = true,  -- Host automatisch akzeptiert
+        accepted = true,
+        declined = false,
         online = true,
+        isHost = true,
         liv = 0
     }
     
@@ -50,7 +52,11 @@ function Challenge:SendInvites()
             
             local playerName = accountInfo.gameAccountInfo.characterName
             self.pendingInvites[playerName] = true
-            self.participants[playerName] = {accepted = false, online = true}
+            self.participants[playerName] = {
+                accepted = false,
+                declined = false,  -- Explizit als nicht abgelehnt markieren
+                online = true
+            }
             
             self:BroadcastMessage("INVITE", {
                 leader = self.leader,
@@ -102,7 +108,11 @@ function Challenge:Accept()
     
     -- Aktualisiere lokalen Status
     if not self.participants[UnitName("player")] then
-        self.participants[UnitName("player")] = {accepted = false, online = true}
+        self.participants[UnitName("player")] = {
+            accepted = false, 
+            online = true,
+            isHost = (UnitName("player") == self.leader)
+        }
     end
     self.participants[UnitName("player")].accepted = true
     
@@ -122,8 +132,16 @@ function Challenge:Decline()
         player = UnitName("player")
     })
     
-    -- Reset local state
-    self:Reset()
+    -- Markiere lokal als abgelehnt
+    if self.participants[UnitName("player")] then
+        self.participants[UnitName("player")].declined = true
+        self.participants[UnitName("player")].accepted = false
+    end
+    
+    -- UI Update
+    if NM.ui and NM.ui.challenge then
+        NM.ui.challenge:UpdateParticipants(self.participants)
+    end
     
     NM:Print(L["You declined the challenge"])
 end
@@ -334,14 +352,30 @@ function Challenge:HandleMessage(sender, message)
         end
         
     elseif data.type == "DECLINE" then
-        if self.leader == UnitName("player") then
-            -- Leader entfernt den Spieler
-            self.participants[data.data.player] = nil
+        NM:Debug("Challenge: Received decline from %s", data.data.player)
+        if self.participants[data.data.player] then
+            -- Markiere den Spieler als abgelehnt, anstatt ihn zu entfernen
+            self.participants[data.data.player] = {
+                accepted = false,
+                declined = true,
+                online = true
+            }
+            
             -- Broadcast den neuen Status an alle
             self:BroadcastMessage("UPDATE_PARTICIPANTS", {
                 participants = self.participants
             })
+            
+            -- UI Update
+            if NM.ui and NM.ui.challenge then
+                NM.ui.challenge:UpdateParticipants(self.participants)
+            end
+            
+            if self.leader == UnitName("player") then
+                NM:Print(string.format(L["%s declined the challenge"], data.data.player))
+            end
         end
+        return
         
     elseif data.type == "UPDATE_PARTICIPANTS" then
         -- Alle Teilnehmer aktualisieren ihre Liste

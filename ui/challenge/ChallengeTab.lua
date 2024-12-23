@@ -259,4 +259,86 @@ function ChallengeTab:OnStartButtonClick()
     end
 end
 
+function ChallengeTab:UpdateParticipants(participants)
+    if not self.participantsContainer then return end
+    
+    -- Lösche bestehende Einträge
+    self.participantsContainer:ReleaseChildren()
+    
+    -- Debug Ausgabe
+    NM:Debug("ChallengeTab: Updating participants list with %d players", 
+        participants and #participants or 0)
+    
+    -- Teilnehmer sortieren und anzeigen
+    local sortedParticipants = {}
+    for playerName, data in pairs(participants) do
+        table.insert(sortedParticipants, {name = playerName, data = data})
+    end
+    
+    table.sort(sortedParticipants, function(a, b) return a.name < b.name end)
+    
+    for _, participant in ipairs(sortedParticipants) do
+        local data = participant.data
+        local playerName = participant.name
+        
+        -- Status-Icon basierend auf dem Zustand
+        local status = ""
+        if data.declined then
+            status = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:14:14|t"  -- X-Icon
+        elseif data.accepted then
+            status = "|TInterface\\RaidFrame\\ReadyCheck-Ready:14:14|t"      -- Häkchen
+        else
+            status = "|TInterface\\RaidFrame\\ReadyCheck-Waiting:14:14|t"    -- Fragezeichen
+        end
+        
+        -- Host-Tag hinzufügen wenn nötig
+        local displayName = playerName
+        if data.isHost then
+            displayName = displayName .. " |cffFFD700(Host)|r"  -- Goldene Farbe für Host
+        end
+        
+        -- LIV-Wert formatieren (falls vorhanden)
+        local livText = ""
+        if data.liv and data.liv > 0 then
+            livText = " - " .. NM.session:FormatGold(data.liv)
+        end
+        
+        -- Erstelle Label für den Teilnehmer
+        local label = AceGUI:Create("Label")
+        label:SetFullWidth(true)
+        label:SetText(string.format("%s %s%s", status, displayName, livText))
+        self.participantsContainer:AddChild(label)
+        
+        NM:Debug("ChallengeTab: Added participant %s%s with status %s", 
+            playerName,
+            data.isHost and " (Host)" or "",
+            data.declined and "declined" or (data.accepted and "accepted" or "pending"))
+    end
+    
+    -- Aktualisiere Start-Button Status
+    if NM.Challenge and NM.Challenge.leader == UnitName("player") then
+        self:UpdateStartButton(participants)
+    end
+end
+
+function ChallengeTab:UpdateStartButton(participants)
+    if not self.startButton then return end
+    
+    local canStart = false
+    local acceptedCount = 0
+    
+    for _, data in pairs(participants) do
+        if data.accepted then
+            acceptedCount = acceptedCount + 1
+        end
+    end
+    
+    canStart = (acceptedCount > 0)
+    self.startButton:SetDisabled(not canStart)
+    
+    NM:Debug("ChallengeTab: Updated start button - Accepted participants: %d, Can start: %s", 
+        acceptedCount, 
+        tostring(canStart))
+end
+
 NM.ChallengeTab = ChallengeTab
