@@ -140,53 +140,44 @@ function Challenge:Decline()
     NM:Print(L["You declined the challenge"])
 end
 
-function Challenge:Start(duration)
-    NM:Debug("Challenge: Attempting to start challenge")
-    
-    -- Überprüfe, ob wir der Leader sind
-    if self.leader ~= UnitName("player") then
-        NM:Debug("Challenge: Cannot start - not the leader")
+function Challenge:Start()
+    if self.state ~= "inviting" then
+        NM:Debug("Challenge: Cannot start - not in inviting state")
         return
     end
     
-    -- Überprüfe, ob die Challenge bereits läuft
-    if self.state == "running" then
-        NM:Debug("Challenge: Cannot start - already running")
+    -- Entferne alle Teilnehmer die nicht akzeptiert haben
+    local acceptedParticipants = {}
+    for name, data in pairs(self.participants) do
+        if data.accepted and not data.declined then
+            acceptedParticipants[name] = data
+        end
+    end
+    
+    -- Aktualisiere die Teilnehmerliste
+    self.participants = acceptedParticipants
+    
+    -- Wenn keine Teilnehmer übrig bleiben, Challenge abbrechen
+    if not next(self.participants) then
+        NM:Print(L["No participants accepted the challenge"])
+        self:Reset()
         return
     end
     
-    if not duration or duration <= 0 then
-        duration = 3600  -- Standard: 1 Stunde
-    end
-    
-    NM:Debug("Challenge: Starting challenge with duration: %d", duration)
-    
-    -- Setze Challenge-Status
+    -- Challenge starten
     self.state = "running"
-    self.startTime = time()
-    self.duration = duration
-    self.endTime = self.startTime + duration
-    
-    -- Starte lokale Session
-    if NM.session then
-        NM.session:reset()  -- Reset session first
-        NM.session.state = "running"  -- Explizit den Status setzen
-        NM:Debug("Challenge: Local session started")
-    else
-        NM:Debug("Challenge: Warning - session module not available")
-    end
+    self.startTime = GetTime()
+    self.endTime = self.startTime + self.duration
     
     -- Starte Live-Updates
     self:StartLiveUpdates()
     
-    -- Informiere alle Teilnehmer
-    self:BroadcastMessage("START", {
-        startTime = self.startTime,
-        duration = self.duration,
-        endTime = self.endTime
-    })
+    -- UI aktualisieren
+    if NM.ui and NM.ui.challenge then
+        NM.ui.challenge:UpdateParticipants(self.participants, self.results)
+    end
     
-    NM:Print(L["Challenge started!"])
+    NM:Print(L["Challenge started with %d participants"], #self.participants)
 end
 
 function Challenge:Stop()
