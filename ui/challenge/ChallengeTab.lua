@@ -184,7 +184,7 @@ function ChallengeTab:Create()
                 detailIcon:SetImage("Interface\\Buttons\\UI-GuildButton-PublicNote-Up") -- Ein "i" Icon für Details
                 detailIcon:SetCallback("OnClick", function()
                     print("Show details for ", participant.name)
-                    NM.ChallengeTab:ShowItemDetails(participant.name, participant.data)
+                    NM.ChallengeTab:ShowItemDetails(participant.name)
                 end)
                 playerRow:AddChild(detailIcon)
             end
@@ -364,80 +364,189 @@ function ChallengeTab:UpdateParticipants(participants)
 end
 
 -- Neue Funktion für den Item-Details Frame
-function ChallengeTab:ShowItemDetails(playerName, data)
-    -- Schließe existierenden Frame falls vorhanden
+function ChallengeTab:ShowItemDetails(playerName)
+    -- Wenn Frame existiert, aktualisiere nur den Inhalt
     if self.itemDetailsFrame then
-        self.itemDetailsFrame:Hide()
-        self.itemDetailsFrame = nil
-        return
-    end
-    
-    -- Erstelle den Frame
-    local frame = AceGUI:Create("Frame")
-    frame:SetTitle(string.format(L["Items for %s"], playerName))
-    frame:SetLayout("Flow")
-    frame:SetWidth(300)
-    frame:SetHeight(400)
-    
-    -- Scrollframe für Items
-    local scroll = AceGUI:Create("ScrollFrame")
-    scroll:SetLayout("Flow")
-    scroll:SetFullWidth(true)
-    scroll:SetFullHeight(true)
-    frame:AddChild(scroll)
-    
-    -- Items anzeigen
-    if NM.Challenge.results[playerName] and NM.Challenge.results[playerName].items then
-        for itemID, count in pairs(NM.Challenge.results[playerName].items) do
-            local itemRow = AceGUI:Create("SimpleGroup")
-            itemRow:SetLayout("Flow")
-            itemRow:SetFullWidth(true)
-            
-            -- Item Icon
-            local itemIcon = AceGUI:Create("Icon")
-            itemIcon:SetWidth(24)
-            itemIcon:SetHeight(24)
-            itemIcon:SetImageSize(24, 24)
-            
-            -- Item Details laden
-            local itemName, itemLink, itemRarity, _, _, _, _, _, _, itemTexture = GetItemInfo(itemID)
-            if itemName then
-                itemIcon:SetImage(itemTexture)
-                
-                -- Item Link erstellen
-                local itemLabel = AceGUI:Create("InteractiveLabel")
-                local displayText = itemName
-                if count and count > 1 then
-                    displayText = displayText .. " x" .. count
-                end
-                itemLabel:SetText(displayText)
-                itemLabel:SetWidth(200)
-                
-                -- Farbe basierend auf Seltenheit
-                local r, g, b = GetItemQualityColor(itemRarity)
-                itemLabel:SetColor(r, g, b)
-                
-                -- Item Link im Chat bei Klick
-                itemLabel:SetCallback("OnClick", function()
-                    if IsShiftKeyDown() then
-                        ChatEdit_InsertLink(itemLink)
-                    end
-                end)
-                
-                itemRow:AddChild(itemIcon)
-                itemRow:AddChild(itemLabel)
-            end
-            
-            scroll:AddChild(itemRow)
+        if self.currentDetailPlayer == playerName then
+            -- Gleicher Spieler - Frame schließen
+            self.itemDetailsFrame:Hide()
+            self.itemDetailsFrame = nil
+            self.currentDetailPlayer = nil
+            return
+        else
+            -- Anderer Spieler - Inhalt aktualisieren
+            self.itemDetailsFrame:SetTitle(string.format(L["Items for %s"], playerName))
+            self:UpdateItemList(playerName)
         end
     else
-        local noItemsLabel = AceGUI:Create("Label")
-        noItemsLabel:SetText(L["No items found"])
-        noItemsLabel:SetFullWidth(true)
-        scroll:AddChild(noItemsLabel)
+        -- Erstelle neuen Frame
+        local frame = AceGUI:Create("Frame")
+        frame:SetTitle(string.format(L["Items for %s"], playerName))
+        frame:SetLayout("List")  -- Geändert zu List für bessere Kontrolle
+        frame:SetWidth(300)
+        frame:SetHeight(400)
+
+        -- Header mit Sortierbuttons und Refresh
+        local headerGroup = AceGUI:Create("SimpleGroup")
+        headerGroup:SetLayout("Flow")
+        headerGroup:SetFullWidth(true)
+        headerGroup:SetHeight(25)
+
+        -- Sortierbuttons
+        local nameSort = AceGUI:Create("Button")
+        nameSort:SetText(L["Name"])
+        nameSort:SetWidth(120)
+        nameSort:SetCallback("OnClick", function() 
+            self:SortItems(playerName, "name") 
+        end)
+        headerGroup:AddChild(nameSort)
+
+        local countSort = AceGUI:Create("Button")
+        countSort:SetText(L["Count"])
+        countSort:SetWidth(80)
+        countSort:SetCallback("OnClick", function() 
+            self:SortItems(playerName, "count") 
+        end)
+        headerGroup:AddChild(countSort)
+
+        -- Refresh Button
+        local refreshButton = AceGUI:Create("Icon")
+        refreshButton:SetImage("Interface\\Buttons\\UI-RefreshButton")
+        refreshButton:SetImageSize(16, 16)
+        refreshButton:SetWidth(20)
+        refreshButton:SetHeight(20)
+        refreshButton:SetCallback("OnClick", function()
+            self:UpdateItemList(playerName)
+        end)
+        headerGroup:AddChild(refreshButton)
+
+        frame:AddChild(headerGroup)
+        
+        -- Scrollframe für Items
+        local scroll = AceGUI:Create("ScrollFrame")
+        scroll:SetLayout("Flow")
+        scroll:SetFullWidth(true)
+        scroll:SetFullHeight(true)
+        frame:AddChild(scroll)
+        
+        -- Speichere Referenzen
+        frame.scroll = scroll
+        self.itemDetailsFrame = frame
+        
+        -- Initialisiere Sortierung
+        self.currentSort = {
+            column = "name",
+            ascending = true
+        }
     end
     
-    self.itemDetailsFrame = frame
+    -- Speichere aktuellen Spieler
+    self.currentDetailPlayer = playerName
+    
+    -- Initial Update
+    self:UpdateItemList(playerName)
+end
+
+function ChallengeTab:SortItems(playerName, column)
+    if self.currentSort.column == column then
+        self.currentSort.ascending = not self.currentSort.ascending
+    else
+        self.currentSort.column = column
+        self.currentSort.ascending = true
+    end
+    
+    self:UpdateItemList(playerName)
+end
+
+function ChallengeTab:UpdateItemList(playerName)
+    if not self.itemDetailsFrame or not self.itemDetailsFrame.scroll then return end
+    
+    local scroll = self.itemDetailsFrame.scroll
+    scroll:ReleaseChildren()
+    
+    -- Items sammeln und sortieren
+    local items = {}
+    if NM.Challenge.results[playerName] and NM.Challenge.results[playerName].items then
+        for itemID, count in pairs(NM.Challenge.results[playerName].items) do
+            local itemName, itemLink, itemRarity, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemID)
+            if itemName then
+                table.insert(items, {
+                    id = itemID,
+                    name = itemName,
+                    link = itemLink,
+                    count = count,
+                    rarity = itemRarity,
+                    texture = itemTexture
+                })
+            end
+        end
+    end
+    
+    -- Sortierung anwenden
+    table.sort(items, function(a, b)
+        local aValue = a[self.currentSort.column]
+        local bValue = b[self.currentSort.column]
+        
+        if self.currentSort.ascending then
+            return aValue < bValue
+        else
+            return aValue > bValue
+        end
+    end)
+    
+    -- Items anzeigen
+    for _, item in ipairs(items) do
+        local itemRow = AceGUI:Create("SimpleGroup")
+        itemRow:SetLayout("Flow")
+        itemRow:SetFullWidth(true)
+        
+        -- Item Icon mit Tooltip
+        local itemIcon = AceGUI:Create("Icon")
+        itemIcon:SetWidth(24)
+        itemIcon:SetHeight(24)
+        itemIcon:SetImageSize(24, 24)
+        itemIcon:SetImage(item.texture)
+        itemIcon:SetCallback("OnEnter", function()
+            GameTooltip:SetOwner(itemIcon.frame, "ANCHOR_RIGHT")
+            GameTooltip:SetHyperlink(item.link)
+            GameTooltip:Show()
+        end)
+        itemIcon:SetCallback("OnLeave", function()
+            GameTooltip:Hide()
+        end)
+        itemRow:AddChild(itemIcon)
+        
+        -- Item Name mit Tooltip
+        local itemLabel = AceGUI:Create("InteractiveLabel")
+        local displayText = item.name
+        if item.count and item.count > 1 then
+            displayText = displayText .. " x" .. item.count
+        end
+        itemLabel:SetText(displayText)
+        itemLabel:SetWidth(200)
+        
+        -- Farbe basierend auf Seltenheit
+        local r, g, b = C_Item.GetItemQualityColor(item.rarity)
+        itemLabel:SetColor(r, g, b)
+        
+        -- Tooltip und Chat Link
+        itemLabel:SetCallback("OnEnter", function()
+            GameTooltip:SetOwner(itemLabel.frame, "ANCHOR_RIGHT")
+            GameTooltip:SetHyperlink(item.link)
+            GameTooltip:Show()
+        end)
+        itemLabel:SetCallback("OnLeave", function()
+            GameTooltip:Hide()
+        end)
+        itemLabel:SetCallback("OnClick", function()
+            if IsShiftKeyDown() then
+                ChatEdit_InsertLink(item.link)
+            end
+        end)
+        
+        itemRow:AddChild(itemLabel)
+        scroll:AddChild(itemRow)
+    end
 end
 
 NM.ChallengeTab = ChallengeTab
