@@ -130,7 +130,117 @@ function ItemsContainer:SortBy(columnKey)
         self.currentSort.ascending = true
     end
 
-    self:Update()
+    -- Sammle und sortiere Items direkt
+    local itemsList = {}
+    local totalValue = 0
+    
+    -- Sammle NUR Items aus der eigenen Session
+    if NM.session and NM.session.items then
+        for itemID, quantity in pairs(NM.session.items) do
+            local actualQuantity = type(quantity) == "table" and (quantity.quantity or 0) or quantity
+            local itemName, itemLink, itemRarity, _, _, _, _, _, _, itemIcon = C_Item.GetItemInfo(itemID)
+            if itemName then
+                local itemValue = select(11, C_Item.GetItemInfo(itemID)) or 0
+                table.insert(itemsList, {
+                    id = itemID,
+                    name = itemName,
+                    link = itemLink,
+                    icon = itemIcon,
+                    quantity = actualQuantity,
+                    value = itemValue
+                })
+                totalValue = totalValue + (itemValue * actualQuantity)
+            end
+        end
+    end
+    
+    -- Sortiere die Liste
+    table.sort(itemsList, function(a, b)
+        if self.currentSort.column == "NAME" then
+            if self.currentSort.ascending then
+                return a.name < b.name
+            else
+                return a.name > b.name
+            end
+        elseif self.currentSort.column == "QUANTITY" then
+            if self.currentSort.ascending then
+                return a.quantity < b.quantity
+            else
+                return a.quantity > b.quantity
+            end
+        elseif self.currentSort.column == "VALUE" then
+            local aTotal = a.value * a.quantity
+            local bTotal = b.value * b.quantity
+            if self.currentSort.ascending then
+                return aTotal < bTotal
+            else
+                return aTotal > bTotal
+            end
+        end
+    end)
+    
+    -- Update die Anzeige mit der sortierten Liste
+    self:UpdateDisplay(itemsList, totalValue)
+end
+
+-- Neue Funktion für die Anzeige
+function ItemsContainer:UpdateDisplay(itemsList, totalValue)
+    if not self.scrollframe then return end
+    self.scrollframe:ReleaseChildren()
+    
+    -- Zeige sortierte Items an
+    for index, item in ipairs(itemsList) do
+        local row = AceGUI:Create("SimpleGroup")
+        row:SetFullWidth(true)
+        row:SetLayout("Flow")
+        row:SetHeight(self.WINDOW_CONFIG.ROW_HEIGHT)
+        
+        -- Alternierender Hintergrund
+        if index % 2 == 0 then
+            local bg = row.frame:CreateTexture(nil, "BACKGROUND")
+            bg:SetAllPoints()
+            bg:SetColorTexture(0.2, 0.2, 0.2, 0.3)
+        end
+        
+        -- Icon
+        local icon = AceGUI:Create("Icon")
+        icon:SetImage(item.icon)
+        icon:SetImageSize(self.WINDOW_CONFIG.ROW_HEIGHT - 5, self.WINDOW_CONFIG.ROW_HEIGHT - 5)
+        icon:SetWidth(self.WINDOW_CONFIG.COLUMNS.ICON.width)
+        row:AddChild(icon)
+        
+        -- Name
+        local name = AceGUI:Create("InteractiveLabel")
+        name:SetText(item.link)
+        name:SetWidth(self.WINDOW_CONFIG.COLUMNS.NAME.width)
+        row:AddChild(name)
+        
+        -- Quantity
+        local qty = AceGUI:Create("Label")
+        qty:SetText(item.quantity)
+        qty:SetWidth(self.WINDOW_CONFIG.COLUMNS.QUANTITY.width)
+        row:AddChild(qty)
+        
+        -- Value
+        local value = AceGUI:Create("Label")
+        value:SetText(NM.UIFunctions:FormatGold(item.value * item.quantity))
+        value:SetWidth(self.WINDOW_CONFIG.COLUMNS.VALUE.width)
+        row:AddChild(value)
+        
+        self.scrollframe:AddChild(row)
+    end
+    
+    -- Update Total Row
+    self.totalRow:ReleaseChildren()
+    local totalLabel = AceGUI:Create("Label")
+    totalLabel:SetText("Total:")
+    totalLabel:SetWidth(self.WINDOW_CONFIG.COLUMNS.NAME.width + self.WINDOW_CONFIG.COLUMNS.ICON.width)
+    self.totalRow:AddChild(totalLabel)
+    
+    local value = AceGUI:Create("Label")
+    value:SetText(NM.UIFunctions:FormatGold(totalValue))
+    value:SetWidth(self.WINDOW_CONFIG.COLUMNS.VALUE.width)
+    self.totalRow:AddChild(value)
 end
 
 -- Public methods
