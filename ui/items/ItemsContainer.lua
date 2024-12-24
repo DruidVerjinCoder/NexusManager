@@ -5,7 +5,7 @@ local L = NM.Locale
 local ItemsContainer = {
     WINDOW_CONFIG = {
         CONTAINER_WIDTH = 200,
-        CONTAINER_HEIGHT = 450,
+        CONTAINER_HEIGHT = 300,
         HEADER_HEIGHT = 25,
         FOOTER_HEIGHT = 25,
         ROW_HEIGHT = 25,
@@ -16,15 +16,15 @@ local ItemsContainer = {
                 name = ""
             },
             NAME = {
-                width = 95,
+                width = 125,
                 name = L["Name"]
             },
             QUANTITY = {
-                width = 30,
+                width = 50,
                 name = L["Qty"]
             },
             VALUE = {
-                width = 160,
+                width = 110,
                 name = L["Value"]
             }
         }
@@ -179,6 +179,9 @@ function ItemsContainer:SortBy(columnKey)
         end
     end)
     
+    -- Update die Sortier-Icons
+    self:UpdateSortIndicators()
+    
     -- Update die Anzeige mit der sortierten Liste
     self:UpdateDisplay(itemsList, totalValue)
 end
@@ -252,45 +255,51 @@ function ItemsContainer:Create()
         self.container:SetFullWidth(true)
         self.container:SetHeight(self.WINDOW_CONFIG.CONTAINER_HEIGHT)
         
-        -- Sortierbuttons Container
-        local sortContainer = AceGUI:Create("SimpleGroup")
-        sortContainer:SetLayout("Flow")
-        sortContainer:SetFullWidth(true)
-        sortContainer:SetHeight(self.WINDOW_CONFIG.SORT_BUTTON_HEIGHT)
+        -- Header Container
+        local headerContainer = AceGUI:Create("SimpleGroup")
+        headerContainer:SetLayout("Flow")
+        headerContainer:SetFullWidth(true)
+        headerContainer:SetHeight(self.WINDOW_CONFIG.HEADER_HEIGHT)
         
-        -- Kompakte Sortierbuttons
-        local nameSort = AceGUI:Create("Button")
-        nameSort:SetText("Name")
-        nameSort:SetWidth(100)
-        nameSort:SetCallback("OnClick", function() self:SortBy("NAME") end)
-        sortContainer:AddChild(nameSort)
+        -- Icon Spalte (leer für Ausrichtung)
+        local iconHeader = AceGUI:Create("Label")
+        iconHeader:SetWidth(self.WINDOW_CONFIG.COLUMNS.ICON.width)
+        headerContainer:AddChild(iconHeader)
         
-        local qtySort = AceGUI:Create("Button")
-        qtySort:SetText("Qty")
-        qtySort:SetWidth(70)
-        qtySort:SetCallback("OnClick", function() self:SortBy("QUANTITY") end)
-        sortContainer:AddChild(qtySort)
+        -- Name Header mit Sortierung
+        self.nameHeader = AceGUI:Create("InteractiveLabel")
+        self.nameHeader:SetText("Item")
+        self.nameHeader:SetWidth(self.WINDOW_CONFIG.COLUMNS.NAME.width)
+        self.nameHeader:SetCallback("OnClick", function() self:SortBy("NAME") end)
+        headerContainer:AddChild(self.nameHeader)
         
-        local valueSort = AceGUI:Create("Button")
-        valueSort:SetText("Value")
-        valueSort:SetWidth(150)
-        valueSort:SetCallback("OnClick", function() self:SortBy("VALUE") end)
-        sortContainer:AddChild(valueSort)
+        -- Quantity Header mit Sortierung
+        self.qtyHeader = AceGUI:Create("InteractiveLabel")
+        self.qtyHeader:SetText("Qty")
+        self.qtyHeader:SetWidth(self.WINDOW_CONFIG.COLUMNS.QUANTITY.width)
+        self.qtyHeader:SetCallback("OnClick", function() self:SortBy("QUANTITY") end)
+        headerContainer:AddChild(self.qtyHeader)
         
-        self.container:AddChild(sortContainer)
+        -- Value Header mit Sortierung
+        self.valueHeader = AceGUI:Create("InteractiveLabel")
+        self.valueHeader:SetText("LIV")
+        self.valueHeader:SetWidth(self.WINDOW_CONFIG.COLUMNS.VALUE.width)
+        self.valueHeader:SetCallback("OnClick", function() self:SortBy("VALUE") end)
+        headerContainer:AddChild(self.valueHeader)
+        
+        self.container:AddChild(headerContainer)
         
         -- Scrollframe für Items
         self.scrollframe = AceGUI:Create("ScrollFrame")
         self.scrollframe:SetLayout("List")
         self.scrollframe:SetFullWidth(true)
-        -- Neue Höhenberechnung: Container - Sortierbuttons - Footer
         local scrollHeight = self.WINDOW_CONFIG.CONTAINER_HEIGHT - 
-                           (self.WINDOW_CONFIG.SORT_BUTTON_HEIGHT + 100) - 
-                           (self.WINDOW_CONFIG.FOOTER_HEIGHT + 15)
+                           self.WINDOW_CONFIG.HEADER_HEIGHT - 
+                           self.WINDOW_CONFIG.FOOTER_HEIGHT
         self.scrollframe:SetHeight(scrollHeight)
         self.container:AddChild(self.scrollframe)
         
-        -- Total Row (fixiert am unteren Rand)
+        -- Total Row
         self.totalRow = AceGUI:Create("SimpleGroup")
         self.totalRow:SetLayout("Flow")
         self.totalRow:SetFullWidth(true)
@@ -309,11 +318,11 @@ function ItemsContainer:Update()
     self.scrollframe:ReleaseChildren()
     
     local sessionItems = {}
+    local totalValue = 0
     
     -- Sammle NUR Items aus der eigenen Session
     if NM.session and NM.session.items then
         for itemID, quantity in pairs(NM.session.items) do
-            -- Prüfe ob quantity eine Zahl oder eine Tabelle ist
             local actualQuantity = type(quantity) == "table" and (quantity.quantity or 0) or quantity
             
             if not sessionItems[itemID] then
@@ -326,14 +335,8 @@ function ItemsContainer:Update()
         end
     end
     
-    -- Debug Ausgabe
-    for itemID, data in pairs(sessionItems) do
-        NM:Debug("ItemsContainer: Own Item %d has quantity %d", itemID, data.quantity)
-    end
-    
     -- Konvertiere in Array für Sortierung
     local itemsList = {}
-    local totalValue = 0
     
     for itemID, itemData in pairs(sessionItems) do
         local itemName, itemLink, itemRarity, _, _, _, _, _, _, itemIcon = C_Item.GetItemInfo(itemID)
@@ -373,17 +376,10 @@ function ItemsContainer:Update()
             bg:SetColorTexture(0.2, 0.2, 0.2, 0.3)
         end
         
-        -- Hover Effekt
-        row.frame:SetScript("OnEnter", function()
-            local highlight = row.frame:CreateTexture(nil, "HIGHLIGHT")
-            highlight:SetAllPoints()
-            highlight:SetColorTexture(0.3, 0.3, 0.3, 0.3)
-        end)
-        
         -- Icon
         local icon = AceGUI:Create("Icon")
         icon:SetImage(item.icon)
-        icon:SetImageSize(self.WINDOW_CONFIG.COLUMNS.ICON.width, self.WINDOW_CONFIG.COLUMNS.ICON.width)
+        icon:SetImageSize(self.WINDOW_CONFIG.ROW_HEIGHT - 5, self.WINDOW_CONFIG.ROW_HEIGHT - 5)
         icon:SetWidth(self.WINDOW_CONFIG.COLUMNS.ICON.width)
         row:AddChild(icon)
         
@@ -413,17 +409,41 @@ function ItemsContainer:Update()
     
     local totalLabel = AceGUI:Create("Label")
     totalLabel:SetText("Total:")
-    totalLabel:SetWidth(self.WINDOW_CONFIG.COLUMNS.NAME.width)
+    totalLabel:SetWidth(self.WINDOW_CONFIG.COLUMNS.NAME.width + self.WINDOW_CONFIG.COLUMNS.ICON.width)
     self.totalRow:AddChild(totalLabel)
-    
-    local emptyQty = AceGUI:Create("Label")
-    emptyQty:SetWidth(self.WINDOW_CONFIG.COLUMNS.QUANTITY.width)
-    self.totalRow:AddChild(emptyQty)
     
     local value = AceGUI:Create("Label")
     value:SetText(NM.UIFunctions:FormatGold(totalValue))
     value:SetWidth(self.WINDOW_CONFIG.COLUMNS.VALUE.width)
     self.totalRow:AddChild(value)
+end
+
+function ItemsContainer:UpdateSortIndicators()
+    -- Setze Basis-Texte
+    local nameText = "Item"
+    local qtyText = "Qty"
+    local valueText = "LIV"
+    
+    -- Füge Sortier-Indikatoren hinzu
+    if self.currentSort then
+        -- Größere Icons (12x12) und besseres Spacing
+        local arrow = self.currentSort.ascending and 
+            "|TInterface/BUTTONS/Arrow-Up-Up:12:12:0:0:1:1|t" or  -- Format: path:height:width:xOffset:yOffset
+            "|TInterface/BUTTONS/Arrow-Down-Up:12:12:0:0:1:1|t"
+        
+        if self.currentSort.column == "NAME" then
+            nameText = nameText .. "  " .. arrow  -- Doppeltes Leerzeichen für besseren Abstand
+        elseif self.currentSort.column == "QUANTITY" then
+            qtyText = qtyText .. "  " .. arrow
+        elseif self.currentSort.column == "VALUE" then
+            valueText = valueText .. "  " .. arrow
+        end
+    end
+    
+    -- Update Header-Texte
+    self.nameHeader:SetText(nameText)
+    self.qtyHeader:SetText(qtyText)
+    self.valueHeader:SetText(valueText)
 end
 
 NM.ItemsContainer = ItemsContainer
