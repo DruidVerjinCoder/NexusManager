@@ -106,6 +106,7 @@ function ChallengeTab:Create()
     
     -- Update Functions
     function container:UpdateParticipants(participants, results)
+        print("Update Participants inside container")
         participantsScroll:ReleaseChildren()
         
         -- Sortiere Teilnehmer nach LIV
@@ -170,6 +171,10 @@ function ChallengeTab:Create()
             playerRow:AddChild(livLabel)
             
             participantsScroll:AddChild(playerRow)
+        end
+
+        if not participantsContainer then
+            print("participantsContainer is nil")
         end
     end
     
@@ -272,6 +277,70 @@ function ChallengeTab:ShowParticipantDetails(playerName, data)
     -- - LIV Entwicklung
     -- - etc.
     NM:Debug("Showing details for participant: %s", playerName)
+end
+
+function ChallengeTab:UpdateUIState(state, isHost)
+    if not self.participantContainer then
+        -- Container erstellen, falls er noch nicht existiert
+        self.participantContainer = AceGUI:Create("InlineGroup")
+        self.participantContainer:SetTitle(L["Participants"])
+        self.participantContainer:SetLayout("List")
+        self.participantContainer:SetFullWidth(true)
+        self.participantContainer:SetHeight(200)
+        self:AddChild(self.participantContainer)
+    end
+    
+    -- Container sichtbar machen
+    self.participantContainer.frame:Show()
+    
+    -- UI-Elemente basierend auf Status aktualisieren
+    if state == "inviting" then
+        -- Zeige Teilnehmerliste
+        self.participantContainer:SetTitle(L["Waiting for participants..."])
+    elseif state == "running" then
+        self.participantContainer:SetTitle(L["Challenge in progress"])
+    end
+end
+
+function ChallengeTab:UpdateParticipants(participants)
+    if not self.participantContainer then return end
+    
+    -- Lösche bestehende Einträge
+    self.participantContainer:ReleaseChildren()
+    
+    -- Füge Teilnehmer hinzu
+    for name, data in pairs(participants) do
+        local participantRow = AceGUI:Create("SimpleGroup")
+        participantRow:SetLayout("Flow")
+        participantRow:SetFullWidth(true)
+        
+        -- Name des Teilnehmers
+        local nameLabel = AceGUI:Create("Label")
+        nameLabel:SetText(name)
+        nameLabel:SetWidth(150)
+        
+        -- Status des Teilnehmers
+        local statusLabel = AceGUI:Create("Label")
+        if data.accepted then
+            statusLabel:SetText(L["Accepted"])
+            statusLabel:SetColor(0, 1, 0) -- Grün
+        elseif data.declined then
+            statusLabel:SetText(L["Declined"])
+            statusLabel:SetColor(1, 0, 0) -- Rot
+        else
+            statusLabel:SetText(L["Pending"])
+            statusLabel:SetColor(1, 1, 0) -- Gelb
+        end
+        statusLabel:SetWidth(100)
+        
+        participantRow:AddChild(nameLabel)
+        participantRow:AddChild(statusLabel)
+        
+        self.participantContainer:AddChild(participantRow)
+    end
+    
+    -- Aktualisiere das Layout
+    self.participantContainer:DoLayout()
 end
 
 NM.ChallengeTab = ChallengeTab

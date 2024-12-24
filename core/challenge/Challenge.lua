@@ -117,7 +117,17 @@ function Challenge:Accept()
     
     -- Wechsle zum Challenge-Tab (4 ist der Index für den Challenge-Tab)
     if NM.mainFrame then
-        NM.mainFrame:SelectTab(4) 
+        NM.mainFrame:SelectTab(4)
+        
+        -- Warte kurz, bis der Tab gewechselt wurde
+        C_Timer.After(0.1, function()
+            if NM.ui.challenge then
+                -- Aktualisiere die Teilnehmerliste
+                NM.ui.challenge:UpdateParticipants(self.participants)
+                -- Aktualisiere den UI-Status für einen Teilnehmer
+                NM.ui.challenge:UpdateUIState("inviting", false)
+            end
+        end)
     end
     
     NM:Print(L["You accepted the challenge"])
