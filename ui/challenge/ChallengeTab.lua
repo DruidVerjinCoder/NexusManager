@@ -365,7 +365,6 @@ end
 
 -- Neue Funktion für den Item-Details Frame
 function ChallengeTab:ShowItemDetails(playerName)
-    -- Wenn Frame existiert, aktualisiere nur den Inhalt
     if self.itemDetailsFrame then
         if self.currentDetailPlayer == playerName then
             -- Gleicher Spieler - Frame schließen
@@ -375,16 +374,33 @@ function ChallengeTab:ShowItemDetails(playerName)
             return
         else
             -- Anderer Spieler - Inhalt aktualisieren
-            self.itemDetailsFrame:SetTitle(string.format(L["Items for %s"], playerName))
+            self.itemDetailsFrame.titleText:SetText(string.format(L["Items for %s"], playerName))
             self:UpdateItemList(playerName)
         end
     else
-        -- Erstelle neuen Frame
-        local frame = AceGUI:Create("Frame")
-        frame:SetTitle(string.format(L["Items for %s"], playerName))
-        frame:SetLayout("List")
-        frame:SetWidth(400)
-        frame:SetHeight(550)  -- Erhöhte Höhe für besseres Layout
+        -- Erstelle neuen Frame mit Blizzard Template
+        local frame = CreateFrame("Frame", "NMItemDetailsFrame", UIParent, "ButtonFrameTemplate")
+        frame:SetSize(400, 550)
+        frame:SetPoint("CENTER")
+        frame:EnableMouse(true)
+        frame:SetMovable(true)
+        frame:RegisterForDrag("LeftButton")
+        frame:SetScript("OnDragStart", frame.StartMoving)
+        frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+        
+        -- Setze Titel
+        frame.titleText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        frame.titleText:SetPoint("TOP", frame, "TOP", 0, -5)
+        frame.titleText:SetText(string.format(L["Items for %s"], playerName))
+
+        -- Erstelle AceGUI Container innerhalb des Blizzard Frames
+        local container = AceGUI:Create("SimpleGroup")
+        container:SetLayout("List")
+        container:SetFullWidth(true)
+        container:SetFullHeight(true)
+        container.frame:SetParent(frame)
+        container.frame:SetPoint("TOPLEFT", 10, -25)
+        container.frame:SetPoint("BOTTOMRIGHT", -10, 10)
 
         -- Header mit Sortierbuttons und Refresh
         local headerGroup = AceGUI:Create("SimpleGroup")
@@ -395,7 +411,7 @@ function ChallengeTab:ShowItemDetails(playerName)
         -- Sortierbuttons
         local nameSort = AceGUI:Create("Button")
         nameSort:SetText(L["Name"])
-        nameSort:SetWidth(200)  -- Breiter für Name + Count
+        nameSort:SetWidth(200)
         nameSort:SetCallback("OnClick", function() 
             self:SortItems(playerName, "name") 
         end)
@@ -403,7 +419,7 @@ function ChallengeTab:ShowItemDetails(playerName)
 
         local valueSort = AceGUI:Create("Button")
         valueSort:SetText(L["Value"])
-        valueSort:SetWidth(120)  -- Breiter für TSM Werte
+        valueSort:SetWidth(120)
         valueSort:SetCallback("OnClick", function() 
             self:SortItems(playerName, "totalValue") 
         end)
@@ -420,22 +436,22 @@ function ChallengeTab:ShowItemDetails(playerName)
         end)
         headerGroup:AddChild(refreshButton)
 
-        frame:AddChild(headerGroup)
+        container:AddChild(headerGroup)
         
         -- Scrollframe für Items
         local scroll = AceGUI:Create("ScrollFrame")
         scroll:SetLayout("Flow")
         scroll:SetFullWidth(true)
-        scroll:SetHeight(400)  -- Mehr Platz für Items
-        frame:AddChild(scroll)
+        scroll:SetHeight(400)
+        container:AddChild(scroll)
         
-        -- Stats Container innerhalb des Frames
+        -- Stats Container
         local statsContainer = AceGUI:Create("InlineGroup")
         statsContainer:SetLayout("Flow")
         statsContainer:SetFullWidth(true)
-        statsContainer:SetHeight(80)  -- Reduzierte Höhe
+        statsContainer:SetHeight(80)
         statsContainer:SetTitle(L["Statistics"])
-        frame:AddChild(statsContainer)
+        container:AddChild(statsContainer)
         
         -- Zwei Spalten für Stats
         local leftColumn = AceGUI:Create("SimpleGroup")
@@ -452,6 +468,7 @@ function ChallengeTab:ShowItemDetails(playerName)
         statsContainer:AddChild(rightColumn)
         
         -- Speichere Referenzen
+        frame.container = container
         frame.scroll = scroll
         frame.leftColumn = leftColumn
         frame.rightColumn = rightColumn
@@ -463,12 +480,21 @@ function ChallengeTab:ShowItemDetails(playerName)
             ascending = false
         }
         
-        -- Speichere aktuellen Spieler
-        self.currentDetailPlayer = playerName
+        -- Close Button Event
+        frame.CloseButton:SetScript("OnClick", function()
+            frame:Hide()
+            self.itemDetailsFrame = nil
+            self.currentDetailPlayer = nil
+        end)
         
-        -- Initial Update
-        self:UpdateItemList(playerName)
+        frame:Show()
     end
+    
+    -- Speichere aktuellen Spieler
+    self.currentDetailPlayer = playerName
+    
+    -- Initial Update
+    self:UpdateItemList(playerName)
 end
 
 function ChallengeTab:SortItems(playerName, column)
@@ -610,37 +636,56 @@ function ChallengeTab:UpdateStats(stats)
     leftColumn:ReleaseChildren()
     rightColumn:ReleaseChildren()
     
-    -- Linke Spalte
+    -- Linke Spalte - Items LIV
+    local livRow = AceGUI:Create("SimpleGroup")
+    livRow:SetLayout("Flow")
+    livRow:SetFullWidth(true)
+    
     local itemsLIVLabel = AceGUI:Create("Label")
     itemsLIVLabel:SetText(L["Items LIV"] .. ":")
-    itemsLIVLabel:SetFullWidth(true)
-    leftColumn:AddChild(itemsLIVLabel)
+    itemsLIVLabel:SetWidth(100)
+    livRow:AddChild(itemsLIVLabel)
     
     local itemsLIVValue = AceGUI:Create("Label")
     itemsLIVValue:SetText(NM.UIFunctions:FormatGold(stats.totalLIV))
-    itemsLIVValue:SetFullWidth(true)
-    leftColumn:AddChild(itemsLIVValue)
+    itemsLIVValue:SetWidth(80)
+    livRow:AddChild(itemsLIVValue)
     
-    -- Rechte Spalte
+    leftColumn:AddChild(livRow)
+    
+    -- Rechte Spalte - Looted Gold
+    local lootedRow = AceGUI:Create("SimpleGroup")
+    lootedRow:SetLayout("Flow")
+    lootedRow:SetFullWidth(true)
+    
     local lootedGoldLabel = AceGUI:Create("Label")
     lootedGoldLabel:SetText(L["Looted Gold"] .. ":")
-    lootedGoldLabel:SetFullWidth(true)
-    rightColumn:AddChild(lootedGoldLabel)
+    lootedGoldLabel:SetWidth(100)
+    lootedRow:AddChild(lootedGoldLabel)
     
     local lootedGoldValue = AceGUI:Create("Label")
     lootedGoldValue:SetText(NM.UIFunctions:FormatGold(stats.lootedGold))
-    lootedGoldValue:SetFullWidth(true)
-    rightColumn:AddChild(lootedGoldValue)
+    lootedGoldValue:SetWidth(80)
+    lootedRow:AddChild(lootedGoldValue)
+    
+    rightColumn:AddChild(lootedRow)
+    
+    -- Total Gold
+    local totalRow = AceGUI:Create("SimpleGroup")
+    totalRow:SetLayout("Flow")
+    totalRow:SetFullWidth(true)
     
     local totalGoldLabel = AceGUI:Create("Label")
     totalGoldLabel:SetText(L["Total Gold"] .. ":")
-    totalGoldLabel:SetFullWidth(true)
-    rightColumn:AddChild(totalGoldLabel)
+    totalGoldLabel:SetWidth(100)
+    totalRow:AddChild(totalGoldLabel)
     
     local totalGoldValue = AceGUI:Create("Label")
     totalGoldValue:SetText(NM.UIFunctions:FormatGold(stats.totalGold))
-    totalGoldValue:SetFullWidth(true)
-    rightColumn:AddChild(totalGoldValue)
+    totalGoldValue:SetWidth(80)
+    totalRow:AddChild(totalGoldValue)
+    
+    rightColumn:AddChild(totalRow)
 end
 
 NM.ChallengeTab = ChallengeTab
