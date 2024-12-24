@@ -113,8 +113,11 @@ function Challenge:Accept()
     self.participants[UnitName("player")].accepted = true
     
     -- UI Update
-    if NM.ui and NM.ui.challenge then
-        NM.ui.challenge:UpdateParticipants(self.participants)
+    NM:OpenNexusManager()
+    
+    -- Wechsle zum Challenge-Tab (4 ist der Index für den Challenge-Tab)
+    if NM.mainFrame then
+        NM.mainFrame:SelectTab(4) 
     end
     
     NM:Print(L["You accepted the challenge"])
@@ -177,7 +180,7 @@ function Challenge:Start()
         NM.ui.challenge:UpdateParticipants(self.participants, self.results)
     end
     
-    NM:Print(L["Challenge started with %d participants"], #self.participants)
+    NM:Print(L["Challenge started with %s participants"], #self.participants)
 end
 
 function Challenge:Stop()
@@ -386,9 +389,8 @@ function Challenge:HandleMessage(sender, message)
     elseif data.type == "UPDATE_PARTICIPANTS" then
         -- Alle Teilnehmer aktualisieren ihre Liste
         self.participants = data.data.participants
-        if NM.ui and NM.ui.challenge then
-            NM.ui.challenge:UpdateParticipants(self.participants, self.results)
-        end
+        NM:LogTable(data.data.participants)
+        NM.ui.challenge:UpdateParticipants(self.participants, self.results)
         
     elseif data.type == "LIVE_UPDATE" then
         if self.state == "running" then

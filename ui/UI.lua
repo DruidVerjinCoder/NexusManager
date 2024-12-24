@@ -258,7 +258,7 @@ local function reloadPostrunContainer()
     end
 end
 
-function NM:CreateMainFrame()
+function NM:CreateMainFrame(tabIndex)
     if NM.mainFrame == nil or NM.mainFrame.isInitialized == false then
         local mainFrame = CreateFrame("Frame", mainFrameName, UIParent, "PortraitFrameFlatTemplate")
         local portraitTexture = mainFrame:CreateTexture(nil, "OVERLAY")
@@ -311,7 +311,8 @@ function NM:CreateMainFrame()
         local challengeContainer = tabContainers[4]
 
         -- Funktion zur Aktualisierung der Tabs und Container
-        local function UpdateTabs(selectedID)
+        function mainFrame:UpdateTabs(selectedID)
+            PanelTemplates_SetTab(self, selectedID)
             for j, tabContent in ipairs(tabContainers) do
                 if j == selectedID and tabContent ~= nil then
                     tabContent.frame:Show()
@@ -343,9 +344,9 @@ function NM:CreateMainFrame()
                     elseif j == 4 then
                         tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -50)
                         if not NM.ui.challenge then
-                            NM.ui.challenge = NM.ChallengeTab:Create()  -- Speichere das UI in NM.ui.challenge
+                            NM.ui.challenge = NM.ChallengeTab:Create()
                         end
-                        if NM.ui.challenge then  -- Prüfe ob Challenge UI existiert
+                        if NM.ui.challenge then
                             challengeContainer:AddChild(NM.ui.challenge)
                         end
                         NM.currentTab = "challenge"
@@ -356,13 +357,18 @@ function NM:CreateMainFrame()
             end
         end
 
+        -- Neue SelectTab Methode
+        function mainFrame:SelectTab(tabIndex)
+            self:UpdateTabs(tabIndex)
+        end
+
         for i, name in ipairs(tabNames) do
             local tab = CreateFrame("Button", "MyAddonTab" .. i, mainFrame, "PanelTabButtonTemplate")
             tab:SetID(i)
             tab:SetText(name)
             tab:SetScript("OnClick", function(self)
                 PanelTemplates_SetTab(mainFrame, self:GetID())
-                UpdateTabs(self:GetID())
+                mainFrame:UpdateTabs(self:GetID())
             end)
             tab:SetPoint("TOPLEFT", mainFrame, "BOTTOMLEFT", (i - 1) * 100 + 18, 2)
             tabs[i] = tab
@@ -374,7 +380,7 @@ function NM:CreateMainFrame()
         mainFrame.Tabs = tabs
         mainFrame.TabContainers = { todosContainer, postrunContainer, itemContainer, backupContainer }
 
-        UpdateTabs(1)
+        mainFrame:UpdateTabs(1)
         mainFrame.isInitialized = true
 
         mainFrame:SetScript("OnDragStop", function(self)
