@@ -390,29 +390,22 @@ function ChallengeTab:ShowItemDetails(playerName)
     
     -- Setze Portrait
     frame.portrait = frame.PortraitContainer.portrait
+    
+    -- Versuche zuerst das direkte Portrait
     SetPortraitTexture(frame.portrait, playerName)
     
-    -- Fallback auf Klassen-Icon falls kein Portrait verfügbar
+    -- Wenn kein direktes Portrait, versuche Battle.net Avatar
     if not frame.portrait:GetTexture() then
-        -- Versuche die Klasse über verschiedene Methoden zu bekommen
-        local class
-        
-        -- Prüfe ob der Spieler in der Gruppe/Raid ist
-        local unitID = NM:GetUnitIDFromName(playerName)
-        if unitID then
-            _, class = UnitClass(unitID)
+        -- Name und Realm trennen
+        local name, realm = strsplit("-", playerName)
+        if not realm then
+            realm = GetRealmName()
         end
         
-        -- Wenn keine Klasse gefunden, verwende Standard-Avatar
-        if class and CLASS_ICON_TCOORDS[class] then
-            local coords = CLASS_ICON_TCOORDS[class]
-            frame.portrait:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
-            frame.portrait:SetTexCoord(unpack(coords))
-        else
-            -- Fallback auf Standard-Spieler-Avatar
-            frame.portrait:SetTexture("Interface\\CharacterFrame\\TempPortrait")
-            frame.portrait:SetTexCoord(0, 1, 0, 1)
-        end
+        -- Setze Standard-Avatar
+        frame.portrait:SetTexture("Interface\\CharacterFrame\\TEMPORARYPORTRAIT-FEMALE-BLOODELF")
+        -- oder alternativ:
+        -- frame.portrait:SetTexture("Interface\\CharacterFrame\\TEMPORARYPORTRAIT-MALE-BLOODELF")
     end
     
     -- Setze Titel
@@ -459,6 +452,17 @@ function ChallengeTab:ShowItemDetails(playerName)
         self:SortItems(playerName, "totalValue") 
     end)
     headerGroup:AddChild(valueSort)
+
+    -- Refresh Button
+    local refreshButton = AceGUI:Create("Icon")
+    refreshButton:SetImage("Interface\\Buttons\\UI-RefreshButton")
+    refreshButton:SetImageSize(16, 16)
+    refreshButton:SetWidth(20)
+    refreshButton:SetHeight(20)
+    refreshButton:SetCallback("OnClick", function()
+        self:UpdateItemList(playerName)
+    end)
+    headerGroup:AddChild(refreshButton)
 
     container:AddChild(headerGroup)
     
@@ -727,27 +731,65 @@ function ChallengeTab:UpdateStats(stats)
 end
 
 -- Hilfsfunktion zum Finden der UnitID
-function NM:GetUnitIDFromName(name)
+function NM:GetUnitIDFromName(fullName)
+    -- Trenne Name und Realm
+    local name, realm = strsplit("-", fullName)
+    if not realm then
+        realm = GetRealmName() -- Aktueller Realm wenn keiner angegeben
+    end
+    
+    -- Normalisiere Realmnamen (entferne Leerzeichen etc.)
+    realm = realm:gsub("%s+", "")
+    
     -- Prüfe Party
-    for i = 1, GetNumGroupMembers() do
-        if name == UnitName("party" .. i) then
+    for i = 1, GetNumSubgroupMembers() do
+        local unitName, unitRealm = UnitName("party" .. i)
+        if not unitRealm then unitRealm = GetRealmName() end
+        unitRealm = unitRealm:gsub("%s+", "")
+        
+        if name == unitName and realm == unitRealm then
             return "party" .. i
         end
     end
     
     -- Prüfe Raid
     for i = 1, GetNumGroupMembers() do
-        if name == UnitName("raid" .. i) then
+        local unitName, unitRealm = UnitName("raid" .. i)
+        if not unitRealm then unitRealm = GetRealmName() end
+        unitRealm = unitRealm:gsub("%s+", "")
+        
+        if name == unitName and realm == unitRealm then
             return "raid" .. i
         end
     end
     
     -- Prüfe ob es der Spieler selbst ist
-    if name == UnitName("player") then
+    local playerName, playerRealm = UnitName("player")
+    if not playerRealm then playerRealm = GetRealmName() end
+    playerRealm = playerRealm:gsub("%s+", "")
+    
+    if name == playerName and realm == playerRealm then
         return "player"
     end
     
-    return nil
+    -- Wenn keine Unit gefunden, versuche einen alternativen Weg
+    -- Erstelle einen Button zum Laden des Avatars
+    local loadAvatarButton = AceGUI:Create("Button")
+    loadAvatarButton:SetText(L["Load Avatar"])
+    loadAvatarButton:SetWidth(100)
+    loadAvatarButton:SetCallback("OnClick", function()
+        -- Öffne Freundesliste und suche nach dem Spieler
+        C_FriendList.SendWho(fullName)
+        -- Nach kurzer Verzögerung sollte das Avatar verfügbar sein
+        C_Timer.After(1, function()
+            -- Versuche das Portrait neu zu laden
+            if self.itemDetailsFrame and self.itemDetailsFrame.portrait then
+                SetPortraitTexture(self.itemDetailsFrame.portrait, fullName)
+            end
+        end)
+    end)
+    
+    return nil, loadAvatarButton
 end
 
 NM.ChallengeTab = ChallengeTab
