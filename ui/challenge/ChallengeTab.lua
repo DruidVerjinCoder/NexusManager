@@ -421,11 +421,14 @@ function ChallengeTab:ShowItemDetails(playerName)
         headerGroup:SetLayout("Flow")
         headerGroup:SetFullWidth(true)
         headerGroup:SetHeight(25)
+        
+        -- Container nach rechts verschieben wegen Portrait
+        headerGroup.frame:SetPoint("TOPLEFT", frame, "TOPLEFT", 85, -25)
 
-        -- Sortierbuttons
+        -- Sortierbuttons mit angepassten Breiten
         local nameSort = AceGUI:Create("Button")
         nameSort:SetText(L["Name"])
-        nameSort:SetWidth(200)
+        nameSort:SetWidth(150)  -- Reduzierte Breite
         nameSort:SetCallback("OnClick", function() 
             self:SortItems(playerName, "name") 
         end)
@@ -433,7 +436,7 @@ function ChallengeTab:ShowItemDetails(playerName)
 
         local valueSort = AceGUI:Create("Button")
         valueSort:SetText(L["Value"])
-        valueSort:SetWidth(120)
+        valueSort:SetWidth(100)  -- Angepasste Breite
         valueSort:SetCallback("OnClick", function() 
             self:SortItems(playerName, "totalValue") 
         end)
@@ -644,59 +647,56 @@ end
 function ChallengeTab:UpdateStats(stats)
     if not self.itemDetailsFrame then return end
     
-    local statsContainer = self.itemDetailsFrame.container.children[3] -- Das InlineGroup für Stats
+    local statsContainer = self.itemDetailsFrame.container.children[3]
     statsContainer:ReleaseChildren()
     
-    -- Erstelle eine einzelne Gruppe für alle Stats
-    local statsGroup = AceGUI:Create("SimpleGroup")
-    statsGroup:SetLayout("Flow")
-    statsGroup:SetFullWidth(true)
-    statsGroup:SetHeight(60)
+    -- Erstelle zwei Spalten für Stats
+    local leftStats = AceGUI:Create("SimpleGroup")
+    leftStats:SetLayout("Flow")
+    leftStats:SetWidth(190)
+    leftStats:SetHeight(60)
     
-    -- Items LIV
+    local rightStats = AceGUI:Create("SimpleGroup")
+    rightStats:SetLayout("Flow")
+    rightStats:SetWidth(190)
+    rightStats:SetHeight(60)
+    
+    -- Linke Spalte: Items LIV
     local livLabel = AceGUI:Create("Label")
     livLabel:SetText(L["Items LIV"] .. ":")
     livLabel:SetWidth(100)
-    statsGroup:AddChild(livLabel)
+    leftStats:AddChild(livLabel)
     
     local livValue = AceGUI:Create("Label")
     livValue:SetText(NM.UIFunctions:FormatGold(stats.totalLIV))
     livValue:SetWidth(80)
-    statsGroup:AddChild(livValue)
+    leftStats:AddChild(livValue)
     
-    -- Spacer
-    local spacer = AceGUI:Create("Label")
-    spacer:SetWidth(20)
-    statsGroup:AddChild(spacer)
-    
-    -- Looted Gold
+    -- Rechte Spalte: Looted Gold und Total
     local lootedLabel = AceGUI:Create("Label")
     lootedLabel:SetText(L["Looted Gold"] .. ":")
     lootedLabel:SetWidth(100)
-    statsGroup:AddChild(lootedLabel)
+    rightStats:AddChild(lootedLabel)
     
     local lootedValue = AceGUI:Create("Label")
     lootedValue:SetText(NM.UIFunctions:FormatGold(stats.lootedGold))
     lootedValue:SetWidth(80)
-    statsGroup:AddChild(lootedValue)
+    rightStats:AddChild(lootedValue)
     
-    -- Spacer
-    local spacer2 = AceGUI:Create("Label")
-    spacer2:SetWidth(20)
-    statsGroup:AddChild(spacer2)
-    
-    -- Total Gold
+    -- Neue Zeile für Total Gold in der rechten Spalte
     local totalLabel = AceGUI:Create("Label")
     totalLabel:SetText(L["Total Gold"] .. ":")
     totalLabel:SetWidth(100)
-    statsGroup:AddChild(totalLabel)
+    rightStats:AddChild(totalLabel)
     
     local totalValue = AceGUI:Create("Label")
     totalValue:SetText(NM.UIFunctions:FormatGold(stats.totalGold))
     totalValue:SetWidth(80)
-    statsGroup:AddChild(totalValue)
+    rightStats:AddChild(totalValue)
     
-    statsContainer:AddChild(statsGroup)
+    -- Füge beide Spalten zum Container hinzu
+    statsContainer:AddChild(leftStats)
+    statsContainer:AddChild(rightStats)
 end
 
 NM.ChallengeTab = ChallengeTab
