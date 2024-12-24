@@ -382,9 +382,9 @@ function ChallengeTab:ShowItemDetails(playerName)
         -- Erstelle neuen Frame
         local frame = AceGUI:Create("Frame")
         frame:SetTitle(string.format(L["Items for %s"], playerName))
-        frame:SetLayout("List")  -- Geändert zu List für bessere Kontrolle
-        frame:SetWidth(300)
-        frame:SetHeight(400)
+        frame:SetLayout("List")
+        frame:SetWidth(400)
+        frame:SetHeight(500)  -- Erhöht für Stats-Bereich
 
         -- Header mit Sortierbuttons und Refresh
         local headerGroup = AceGUI:Create("SimpleGroup")
@@ -404,10 +404,18 @@ function ChallengeTab:ShowItemDetails(playerName)
         local countSort = AceGUI:Create("Button")
         countSort:SetText(L["Count"])
         countSort:SetWidth(80)
-        countSort:SetCallback("OnClick", function() 
+        nameSort:SetCallback("OnClick", function() 
             self:SortItems(playerName, "count") 
         end)
         headerGroup:AddChild(countSort)
+
+        local valueSort = AceGUI:Create("Button")
+        valueSort:SetText(L["Value"])
+        valueSort:SetWidth(80)
+        valueSort:SetCallback("OnClick", function() 
+            self:SortItems(playerName, "totalValue") 
+        end)
+        headerGroup:AddChild(valueSort)
 
         -- Refresh Button
         local refreshButton = AceGUI:Create("Icon")
@@ -426,17 +434,41 @@ function ChallengeTab:ShowItemDetails(playerName)
         local scroll = AceGUI:Create("ScrollFrame")
         scroll:SetLayout("Flow")
         scroll:SetFullWidth(true)
-        scroll:SetFullHeight(true)
+        scroll:SetHeight(350)  -- Feste Höhe, um Platz für Stats zu lassen
         frame:AddChild(scroll)
+        
+        -- Stats Container
+        local statsContainer = AceGUI:Create("InlineGroup")
+        statsContainer:SetLayout("Flow")
+        statsContainer:SetFullWidth(true)
+        statsContainer:SetHeight(100)
+        statsContainer:SetTitle(L["Statistics"])
+        
+        -- Erstelle zwei Spalten für Stats
+        local leftColumn = AceGUI:Create("SimpleGroup")
+        leftColumn:SetLayout("List")
+        leftColumn:SetWidth(180)
+        leftColumn:SetHeight(80)
+        
+        local rightColumn = AceGUI:Create("SimpleGroup")
+        rightColumn:SetLayout("List")
+        rightColumn:SetWidth(180)
+        rightColumn:SetHeight(80)
+        
+        statsContainer:AddChild(leftColumn)
+        statsContainer:AddChild(rightColumn)
+        frame:AddChild(statsContainer)
         
         -- Speichere Referenzen
         frame.scroll = scroll
+        frame.leftColumn = leftColumn
+        frame.rightColumn = rightColumn
         self.itemDetailsFrame = frame
         
         -- Initialisiere Sortierung
         self.currentSort = {
-            column = "name",
-            ascending = true
+            column = "totalValue",
+            ascending = false
         }
     end
     
@@ -459,25 +491,44 @@ function ChallengeTab:SortItems(playerName, column)
 end
 
 function ChallengeTab:UpdateItemList(playerName)
-    if not self.itemDetailsFrame or not self.itemDetailsFrame.scroll then return end
+    if not self.itemDetailsFrame then return end
     
     local scroll = self.itemDetailsFrame.scroll
     scroll:ReleaseChildren()
     
     -- Items sammeln und sortieren
     local items = {}
-    if NM.Challenge.results[playerName] and NM.Challenge.results[playerName].items then
-        for itemID, count in pairs(NM.Challenge.results[playerName].items) do
-            local itemName, itemLink, itemRarity, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemID)
-            if itemName then
-                table.insert(items, {
-                    id = itemID,
-                    name = itemName,
-                    link = itemLink,
-                    count = count,
-                    rarity = itemRarity,
-                    texture = itemTexture
-                })
+    local stats = {
+        totalLIV = 0,
+        lootedGold = 0,
+        totalGold = 0
+    }
+    
+    if NM.Challenge.results[playerName] then
+        local result = NM.Challenge.results[playerName]
+        stats.lootedGold = result.lootedGold or 0
+        stats.totalGold = result.totalGold or 0
+        
+        if result.items then
+            for itemID, count in pairs(result.items) do
+                local itemName, itemLink, itemRarity, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemID)
+                if itemName then
+                    -- TSM Wert statt Item Vendor Value
+                    local itemValue = NM.TSM.GetItemValue(itemID, "DBRegionSaleAvg") or 0
+                    local totalValue = itemValue * count
+                    stats.totalLIV = stats.totalLIV + totalValue
+                    
+                    table.insert(items, {
+                        id = itemID,
+                        name = itemName,
+                        link = itemLink,
+                        count = count,
+                        rarity = itemRarity,
+                        texture = itemTexture,
+                        value = itemValue,
+                        totalValue = totalValue
+                    })
+                end
             end
         end
     end
@@ -518,12 +569,8 @@ function ChallengeTab:UpdateItemList(playerName)
         
         -- Item Name mit Tooltip
         local itemLabel = AceGUI:Create("InteractiveLabel")
-        local displayText = item.name
-        if item.count and item.count > 1 then
-            displayText = displayText .. " x" .. item.count
-        end
-        itemLabel:SetText(displayText)
-        itemLabel:SetWidth(200)
+        itemLabel:SetText(item.name)
+        itemLabel:SetWidth(150)
         
         -- Farbe basierend auf Seltenheit
         local r, g, b = C_Item.GetItemQualityColor(item.rarity)
@@ -543,10 +590,73 @@ function ChallengeTab:UpdateItemList(playerName)
                 ChatEdit_InsertLink(item.link)
             end
         end)
-        
         itemRow:AddChild(itemLabel)
+
+        -- Anzahl
+        local countLabel = AceGUI:Create("Label")
+        countLabel:SetText(item.count)
+        countLabel:SetWidth(40)
+        itemRow:AddChild(countLabel)
+        
+        -- Einzelwert (TSM)
+        local valueLabel = AceGUI:Create("Label")
+        valueLabel:SetText(NM.UIFunctions:FormatGold(item.value))
+        valueLabel:SetWidth(80)
+        itemRow:AddChild(valueLabel)
+        
+        -- Gesamtwert (TSM × Anzahl)
+        local totalValueLabel = AceGUI:Create("Label")
+        totalValueLabel:SetText(NM.UIFunctions:FormatGold(item.totalValue))
+        totalValueLabel:SetWidth(80)
+        itemRow:AddChild(totalValueLabel)
+        
         scroll:AddChild(itemRow)
     end
+    
+    -- Update Stats
+    self:UpdateStats(stats)
+end
+
+function ChallengeTab:UpdateStats(stats)
+    if not self.itemDetailsFrame then return end
+    
+    local leftColumn = self.itemDetailsFrame.leftColumn
+    local rightColumn = self.itemDetailsFrame.rightColumn
+    
+    leftColumn:ReleaseChildren()
+    rightColumn:ReleaseChildren()
+    
+    -- Linke Spalte
+    local itemsLIVLabel = AceGUI:Create("Label")
+    itemsLIVLabel:SetText(L["Items LIV"] .. ":")
+    itemsLIVLabel:SetFullWidth(true)
+    leftColumn:AddChild(itemsLIVLabel)
+    
+    local itemsLIVValue = AceGUI:Create("Label")
+    itemsLIVValue:SetText(NM.UIFunctions:FormatGold(stats.totalLIV))
+    itemsLIVValue:SetFullWidth(true)
+    leftColumn:AddChild(itemsLIVValue)
+    
+    -- Rechte Spalte
+    local lootedGoldLabel = AceGUI:Create("Label")
+    lootedGoldLabel:SetText(L["Looted Gold"] .. ":")
+    lootedGoldLabel:SetFullWidth(true)
+    rightColumn:AddChild(lootedGoldLabel)
+    
+    local lootedGoldValue = AceGUI:Create("Label")
+    lootedGoldValue:SetText(NM.UIFunctions:FormatGold(stats.lootedGold))
+    lootedGoldValue:SetFullWidth(true)
+    rightColumn:AddChild(lootedGoldValue)
+    
+    local totalGoldLabel = AceGUI:Create("Label")
+    totalGoldLabel:SetText(L["Total Gold"] .. ":")
+    totalGoldLabel:SetFullWidth(true)
+    rightColumn:AddChild(totalGoldLabel)
+    
+    local totalGoldValue = AceGUI:Create("Label")
+    totalGoldValue:SetText(NM.UIFunctions:FormatGold(stats.totalGold))
+    totalGoldValue:SetFullWidth(true)
+    rightColumn:AddChild(totalGoldValue)
 end
 
 NM.ChallengeTab = ChallengeTab
