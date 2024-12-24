@@ -113,7 +113,6 @@ function ChallengeTab:Create()
     
     -- Update Functions
     function container:UpdateParticipants(participants, results)
-        print("Update Participants inside container")
         participantsScroll:ReleaseChildren()
         
         -- Sortiere Teilnehmer nach LIV
@@ -176,6 +175,19 @@ function ChallengeTab:Create()
             livLabel:SetText(NM.UIFunctions:FormatGold(participant.liv))
             livLabel:SetWidth(100)
             playerRow:AddChild(livLabel)
+
+            if NM.Challenge.state == "running" then
+                local detailIcon = AceGUI:Create("Icon")
+                detailIcon:SetWidth(16)
+                detailIcon:SetHeight(16)
+                detailIcon:SetImageSize(16, 16)
+                detailIcon:SetImage("Interface\\Buttons\\UI-GuildButton-PublicNote-Up") -- Ein "i" Icon für Details
+                detailIcon:SetCallback("OnClick", function()
+                    print("Show details for ", participant.name)
+                    NM.ChallengeTab:ShowItemDetails(participant.name, participant.data)
+                end)
+                playerRow:AddChild(detailIcon)
+            end
             
             participantsScroll:AddChild(playerRow)
         end
@@ -349,6 +361,83 @@ function ChallengeTab:UpdateParticipants(participants)
     
     -- Aktualisiere das Layout
     self.participantContainer:DoLayout()
+end
+
+-- Neue Funktion für den Item-Details Frame
+function ChallengeTab:ShowItemDetails(playerName, data)
+    -- Schließe existierenden Frame falls vorhanden
+    if self.itemDetailsFrame then
+        self.itemDetailsFrame:Hide()
+        self.itemDetailsFrame = nil
+        return
+    end
+    
+    -- Erstelle den Frame
+    local frame = AceGUI:Create("Frame")
+    frame:SetTitle(string.format(L["Items for %s"], playerName))
+    frame:SetLayout("Flow")
+    frame:SetWidth(300)
+    frame:SetHeight(400)
+    
+    -- Scrollframe für Items
+    local scroll = AceGUI:Create("ScrollFrame")
+    scroll:SetLayout("Flow")
+    scroll:SetFullWidth(true)
+    scroll:SetFullHeight(true)
+    frame:AddChild(scroll)
+    
+    -- Items anzeigen
+    if NM.Challenge.results[playerName] and NM.Challenge.results[playerName].items then
+        for itemID, count in pairs(NM.Challenge.results[playerName].items) do
+            local itemRow = AceGUI:Create("SimpleGroup")
+            itemRow:SetLayout("Flow")
+            itemRow:SetFullWidth(true)
+            
+            -- Item Icon
+            local itemIcon = AceGUI:Create("Icon")
+            itemIcon:SetWidth(24)
+            itemIcon:SetHeight(24)
+            itemIcon:SetImageSize(24, 24)
+            
+            -- Item Details laden
+            local itemName, itemLink, itemRarity, _, _, _, _, _, _, itemTexture = GetItemInfo(itemID)
+            if itemName then
+                itemIcon:SetImage(itemTexture)
+                
+                -- Item Link erstellen
+                local itemLabel = AceGUI:Create("InteractiveLabel")
+                local displayText = itemName
+                if count and count > 1 then
+                    displayText = displayText .. " x" .. count
+                end
+                itemLabel:SetText(displayText)
+                itemLabel:SetWidth(200)
+                
+                -- Farbe basierend auf Seltenheit
+                local r, g, b = GetItemQualityColor(itemRarity)
+                itemLabel:SetColor(r, g, b)
+                
+                -- Item Link im Chat bei Klick
+                itemLabel:SetCallback("OnClick", function()
+                    if IsShiftKeyDown() then
+                        ChatEdit_InsertLink(itemLink)
+                    end
+                end)
+                
+                itemRow:AddChild(itemIcon)
+                itemRow:AddChild(itemLabel)
+            end
+            
+            scroll:AddChild(itemRow)
+        end
+    else
+        local noItemsLabel = AceGUI:Create("Label")
+        noItemsLabel:SetText(L["No items found"])
+        noItemsLabel:SetFullWidth(true)
+        scroll:AddChild(noItemsLabel)
+    end
+    
+    self.itemDetailsFrame = frame
 end
 
 NM.ChallengeTab = ChallengeTab

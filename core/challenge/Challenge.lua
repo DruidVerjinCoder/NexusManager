@@ -71,7 +71,7 @@ function Challenge:SendInvites()
         end
     end
     
-    NM:Debug("Total participants after invites: " .. NM:TableToString(self.participants))
+    NM:Debug("Total participants after invites: " .. NM.Utils.tableToString(self.participants))
     
     if invitedCount > 0 then
         NM:Print(string.format(L["Challenge invitations sent to %d players"], invitedCount))
@@ -418,6 +418,7 @@ function Challenge:HandleMessage(sender, message)
             end
         end
         return
+    elseif data.type == "PAUSE" then
         
     elseif data.type == "UPDATE_PARTICIPANTS" then
         -- Alle Teilnehmer aktualisieren ihre Liste
