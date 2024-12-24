@@ -367,150 +367,142 @@ end
 function ChallengeTab:ShowItemDetails(playerName)
     if self.itemDetailsFrame then
         if self.currentDetailPlayer == playerName then
-            -- Gleicher Spieler - Frame schließen
             self.itemDetailsFrame:Hide()
             self.itemDetailsFrame = nil
             self.currentDetailPlayer = nil
             return
         else
-            -- Anderer Spieler - Inhalt aktualisieren
-            self.itemDetailsFrame.titleText:SetText(string.format(L["Items for %s"], playerName))
+            self.itemDetailsFrame.TitleContainer.TitleText:SetText(string.format(L["Items for %s"], playerName))
             self:UpdateItemList(playerName)
+            return
         end
-    else
-        -- Erstelle neuen Frame mit Blizzard Template
-        local frame = CreateFrame("Frame", "NMItemDetailsFrame", UIParent, "ButtonFrameTemplate")
-        frame:SetSize(400, 550)
-        frame:SetPoint("CENTER")
-        frame:EnableMouse(true)
-        frame:SetMovable(true)
-        frame:RegisterForDrag("LeftButton")
-        frame:SetScript("OnDragStart", frame.StartMoving)
-        frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
-        
-        -- Setze Portrait
-        frame.portrait = frame.PortraitContainer.portrait
-        SetPortraitTexture(frame.portrait, playerName)
-        
-        -- Fallback auf Klassen-Icon falls kein Portrait verfügbar
-        if not frame.portrait:GetTexture() then
-            local _, class = GetPlayerInfoByGUID(UnitGUID(playerName))
-            if class then
-                local coords = CLASS_ICON_TCOORDS[class]
-                frame.portrait:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
-                if coords then
-                    frame.portrait:SetTexCoord(unpack(coords))
-                end
-            end
-        end
-        
-        -- Setze Titel
-        frame.TitleContainer.TitleText:SetText(string.format(L["Items for %s"], playerName))
-        
-        -- Erstelle AceGUI Container innerhalb des Blizzard Frames
-        local container = AceGUI:Create("SimpleGroup")
-        container:SetLayout("List")
-        container:SetFullWidth(true)
-        container:SetFullHeight(true)
-        container.frame:SetParent(frame)
-        container.frame:SetPoint("TOPLEFT", 10, -25)
-        container.frame:SetPoint("BOTTOMRIGHT", -10, 10)
-
-        -- Header mit Sortierbuttons und Refresh
-        local headerGroup = AceGUI:Create("SimpleGroup")
-        headerGroup:SetLayout("Flow")
-        headerGroup:SetFullWidth(true)
-        headerGroup:SetHeight(25)
-        
-        -- Container nach rechts verschieben wegen Portrait
-        headerGroup.frame:SetPoint("TOPLEFT", frame, "TOPLEFT", 85, -25)
-
-        -- Sortierbuttons mit angepassten Breiten
-        local nameSort = AceGUI:Create("Button")
-        nameSort:SetText(L["Name"])
-        nameSort:SetWidth(150)  -- Reduzierte Breite
-        nameSort:SetCallback("OnClick", function() 
-            self:SortItems(playerName, "name") 
-        end)
-        headerGroup:AddChild(nameSort)
-
-        local valueSort = AceGUI:Create("Button")
-        valueSort:SetText(L["Value"])
-        valueSort:SetWidth(100)  -- Angepasste Breite
-        valueSort:SetCallback("OnClick", function() 
-            self:SortItems(playerName, "totalValue") 
-        end)
-        headerGroup:AddChild(valueSort)
-
-        -- Refresh Button
-        local refreshButton = AceGUI:Create("Icon")
-        refreshButton:SetImage("Interface\\Buttons\\UI-RefreshButton")
-        refreshButton:SetImageSize(16, 16)
-        refreshButton:SetWidth(20)
-        refreshButton:SetHeight(20)
-        refreshButton:SetCallback("OnClick", function()
-            self:UpdateItemList(playerName)
-        end)
-        headerGroup:AddChild(refreshButton)
-
-        container:AddChild(headerGroup)
-        
-        -- Scrollframe für Items
-        local scroll = AceGUI:Create("ScrollFrame")
-        scroll:SetLayout("Flow")
-        scroll:SetFullWidth(true)
-        scroll:SetHeight(400)
-        container:AddChild(scroll)
-        
-        -- Stats Container
-        local statsContainer = AceGUI:Create("InlineGroup")
-        statsContainer:SetLayout("Flow")
-        statsContainer:SetFullWidth(true)
-        statsContainer:SetHeight(80)
-        statsContainer:SetTitle(L["Statistics"])
-        container:AddChild(statsContainer)
-        
-        -- Zwei Spalten für Stats
-        local leftColumn = AceGUI:Create("SimpleGroup")
-        leftColumn:SetLayout("List")
-        leftColumn:SetWidth(180)
-        leftColumn:SetHeight(60)
-        
-        local rightColumn = AceGUI:Create("SimpleGroup")
-        rightColumn:SetLayout("List")
-        rightColumn:SetWidth(180)
-        rightColumn:SetHeight(60)
-        
-        statsContainer:AddChild(leftColumn)
-        statsContainer:AddChild(rightColumn)
-        
-        -- Speichere Referenzen
-        frame.container = container
-        frame.scroll = scroll
-        frame.leftColumn = leftColumn
-        frame.rightColumn = rightColumn
-        self.itemDetailsFrame = frame
-        
-        -- Initialisiere Sortierung
-        self.currentSort = {
-            column = "totalValue",
-            ascending = false
-        }
-        
-        -- Close Button Event
-        frame.CloseButton:SetScript("OnClick", function()
-            frame:Hide()
-            self.itemDetailsFrame = nil
-            self.currentDetailPlayer = nil
-        end)
-        
-        frame:Show()
     end
+
+    -- Erstelle neuen Frame mit Blizzard Template
+    local frame = CreateFrame("Frame", "NMItemDetailsFrame", UIParent, "ButtonFrameTemplate")
+    frame:SetSize(400, 550)
+    frame:SetPoint("CENTER")
+    frame:EnableMouse(true)
+    frame:SetMovable(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", frame.StartMoving)
+    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+    
+    -- Setze Portrait
+    frame.portrait = frame.PortraitContainer.portrait
+    SetPortraitTexture(frame.portrait, playerName)
+    
+    -- Fallback auf Klassen-Icon falls kein Portrait verfügbar
+    if not frame.portrait:GetTexture() then
+        -- Versuche die Klasse über verschiedene Methoden zu bekommen
+        local class
+        
+        -- Prüfe ob der Spieler in der Gruppe/Raid ist
+        local unitID = NM:GetUnitIDFromName(playerName)
+        if unitID then
+            _, class = UnitClass(unitID)
+        end
+        
+        -- Wenn keine Klasse gefunden, verwende Standard-Avatar
+        if class and CLASS_ICON_TCOORDS[class] then
+            local coords = CLASS_ICON_TCOORDS[class]
+            frame.portrait:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
+            frame.portrait:SetTexCoord(unpack(coords))
+        else
+            -- Fallback auf Standard-Spieler-Avatar
+            frame.portrait:SetTexture("Interface\\CharacterFrame\\TempPortrait")
+            frame.portrait:SetTexCoord(0, 1, 0, 1)
+        end
+    end
+    
+    -- Setze Titel
+    frame.TitleContainer.TitleText:SetText(string.format(L["Items for %s"], playerName))
+    
+    -- Erstelle AceGUI Container
+    local container = AceGUI:Create("SimpleGroup")
+    container:SetLayout("List")
+    container:SetFullWidth(true)
+    container:SetFullHeight(true)
+    container.frame:SetParent(frame)
+    container.frame:SetPoint("TOPLEFT", 10, -25)
+    container.frame:SetPoint("BOTTOMRIGHT", -10, 10)
+
+    -- Header mit Sortierbuttons und Refresh
+    local headerGroup = AceGUI:Create("SimpleGroup")
+    headerGroup:SetLayout("Flow")
+    headerGroup:SetFullWidth(true)
+    headerGroup:SetHeight(25)
+    
+    -- Container nach rechts verschieben
+    headerGroup.frame:SetPoint("TOPLEFT", frame, "TOPLEFT", 85, -25)
+    headerGroup.frame:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -10, -25)
+
+    -- Spacer für Rechtsausrichtung
+    local spacer = AceGUI:Create("Label")
+    spacer:SetText("")
+    spacer:SetWidth(50)
+    headerGroup:AddChild(spacer)
+
+    -- Sortierbuttons
+    local nameSort = AceGUI:Create("Button")
+    nameSort:SetText(L["Name"])
+    nameSort:SetWidth(150)
+    nameSort:SetCallback("OnClick", function() 
+        self:SortItems(playerName, "name") 
+    end)
+    headerGroup:AddChild(nameSort)
+
+    local valueSort = AceGUI:Create("Button")
+    valueSort:SetText(L["Value"])
+    valueSort:SetWidth(100)
+    valueSort:SetCallback("OnClick", function() 
+        self:SortItems(playerName, "totalValue") 
+    end)
+    headerGroup:AddChild(valueSort)
+
+    container:AddChild(headerGroup)
+    
+    -- Scrollframe für Items
+    local scroll = AceGUI:Create("ScrollFrame")
+    scroll:SetLayout("Flow")
+    scroll:SetFullWidth(true)
+    scroll:SetHeight(350)
+    container:AddChild(scroll)
+    
+    -- Stats Container
+    local statsContainer = AceGUI:Create("InlineGroup")
+    statsContainer:SetLayout("Flow")
+    statsContainer:SetFullWidth(true)
+    statsContainer:SetHeight(80)
+    statsContainer:SetTitle(L["Statistics"])
+    container:AddChild(statsContainer)
+    
+    -- Speichere Referenzen
+    frame.container = container
+    frame.scroll = scroll
+    frame.statsContainer = statsContainer
+    self.itemDetailsFrame = frame
+    
+    -- Close Button Event
+    frame.CloseButton:SetScript("OnClick", function()
+        frame:Hide()
+        self.itemDetailsFrame = nil
+        self.currentDetailPlayer = nil
+    end)
+    
+    frame:Show()
     
     -- Speichere aktuellen Spieler
     self.currentDetailPlayer = playerName
     
-    -- Initial Update
+    -- Initial Update mit leeren Stats
+    self:UpdateStats({
+        totalLIV = 0,
+        lootedGold = 0,
+        totalGold = 0
+    })
+    
+    -- Dann Update der Items und Stats mit echten Daten
     self:UpdateItemList(playerName)
 end
 
@@ -548,7 +540,6 @@ function ChallengeTab:UpdateItemList(playerName)
             for itemID, count in pairs(result.items) do
                 local itemName, itemLink, itemRarity, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemID)
                 if itemName then
-                    -- TSM Wert statt Item Vendor Value
                     local itemValue = NM.TSM.GetItemValue(itemID, "DBRegionSaleAvg") or 0
                     local totalValue = itemValue * count
                     stats.totalLIV = stats.totalLIV + totalValue
@@ -566,6 +557,14 @@ function ChallengeTab:UpdateItemList(playerName)
                 end
             end
         end
+    end
+    
+    -- Stelle sicher, dass currentSort initialisiert ist
+    if not self.currentSort then
+        self.currentSort = {
+            column = "totalValue",
+            ascending = false
+        }
     end
     
     -- Sortierung anwenden
@@ -640,7 +639,7 @@ function ChallengeTab:UpdateItemList(playerName)
         scroll:AddChild(itemRow)
     end
     
-    -- Update Stats
+    -- Update Stats erst nachdem wir die Daten haben
     self:UpdateStats(stats)
 end
 
@@ -650,53 +649,105 @@ function ChallengeTab:UpdateStats(stats)
     local statsContainer = self.itemDetailsFrame.container.children[3]
     statsContainer:ReleaseChildren()
     
-    -- Erstelle zwei Spalten für Stats
+    -- Erstelle zwei Spalten für Stats mit mehr Abstand
     local leftStats = AceGUI:Create("SimpleGroup")
     leftStats:SetLayout("Flow")
     leftStats:SetWidth(190)
-    leftStats:SetHeight(60)
+    leftStats:SetHeight(80)  -- Erhöhte Höhe für mehr Abstand
     
     local rightStats = AceGUI:Create("SimpleGroup")
     rightStats:SetLayout("Flow")
     rightStats:SetWidth(190)
-    rightStats:SetHeight(60)
+    rightStats:SetHeight(80)  -- Erhöhte Höhe für mehr Abstand
     
     -- Linke Spalte: Items LIV
+    local livGroup = AceGUI:Create("SimpleGroup")
+    livGroup:SetLayout("Flow")
+    livGroup:SetFullWidth(true)
+    livGroup:SetHeight(25)  -- Höhe für eine Zeile
+    
     local livLabel = AceGUI:Create("Label")
     livLabel:SetText(L["Items LIV"] .. ":")
     livLabel:SetWidth(100)
-    leftStats:AddChild(livLabel)
+    livGroup:AddChild(livLabel)
     
     local livValue = AceGUI:Create("Label")
     livValue:SetText(NM.UIFunctions:FormatGold(stats.totalLIV))
     livValue:SetWidth(80)
-    leftStats:AddChild(livValue)
+    livGroup:AddChild(livValue)
     
-    -- Rechte Spalte: Looted Gold und Total
+    leftStats:AddChild(livGroup)
+    
+    -- Rechte Spalte: Looted Gold
+    local lootedGroup = AceGUI:Create("SimpleGroup")
+    lootedGroup:SetLayout("Flow")
+    lootedGroup:SetFullWidth(true)
+    lootedGroup:SetHeight(25)  -- Höhe für eine Zeile
+    
     local lootedLabel = AceGUI:Create("Label")
     lootedLabel:SetText(L["Looted Gold"] .. ":")
     lootedLabel:SetWidth(100)
-    rightStats:AddChild(lootedLabel)
+    lootedGroup:AddChild(lootedLabel)
     
     local lootedValue = AceGUI:Create("Label")
     lootedValue:SetText(NM.UIFunctions:FormatGold(stats.lootedGold))
     lootedValue:SetWidth(80)
-    rightStats:AddChild(lootedValue)
+    lootedGroup:AddChild(lootedValue)
     
-    -- Neue Zeile für Total Gold in der rechten Spalte
+    rightStats:AddChild(lootedGroup)
+    
+    -- Abstand zwischen den Zeilen
+    local spacer = AceGUI:Create("Label")
+    spacer:SetText("")
+    spacer:SetFullWidth(true)
+    spacer:SetHeight(5)
+    rightStats:AddChild(spacer)
+    
+    -- Total Gold
+    local totalGroup = AceGUI:Create("SimpleGroup")
+    totalGroup:SetLayout("Flow")
+    totalGroup:SetFullWidth(true)
+    totalGroup:SetHeight(25)  -- Höhe für eine Zeile
+    
     local totalLabel = AceGUI:Create("Label")
     totalLabel:SetText(L["Total Gold"] .. ":")
     totalLabel:SetWidth(100)
-    rightStats:AddChild(totalLabel)
+    totalGroup:AddChild(totalLabel)
     
     local totalValue = AceGUI:Create("Label")
     totalValue:SetText(NM.UIFunctions:FormatGold(stats.totalGold))
     totalValue:SetWidth(80)
-    rightStats:AddChild(totalValue)
+    totalGroup:AddChild(totalValue)
+    
+    rightStats:AddChild(totalGroup)
     
     -- Füge beide Spalten zum Container hinzu
     statsContainer:AddChild(leftStats)
     statsContainer:AddChild(rightStats)
+end
+
+-- Hilfsfunktion zum Finden der UnitID
+function NM:GetUnitIDFromName(name)
+    -- Prüfe Party
+    for i = 1, GetNumGroupMembers() do
+        if name == UnitName("party" .. i) then
+            return "party" .. i
+        end
+    end
+    
+    -- Prüfe Raid
+    for i = 1, GetNumGroupMembers() do
+        if name == UnitName("raid" .. i) then
+            return "raid" .. i
+        end
+    end
+    
+    -- Prüfe ob es der Spieler selbst ist
+    if name == UnitName("player") then
+        return "player"
+    end
+    
+    return nil
 end
 
 NM.ChallengeTab = ChallengeTab
