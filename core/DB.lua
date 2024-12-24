@@ -259,12 +259,9 @@ function DB:GetTodos()
     local char = self:GetCurrentCharacter()
     
     if not char then 
-        NM:Log("GetTodos: No character found")
         return todos 
     end
     
-    NM:Log("=== GetTodos Debug Start ===")
-    NM:Log("Character: " .. char.name)
     
     -- Get current professions first
     local currentProfessions = {}
@@ -279,11 +276,9 @@ function DB:GetTodos()
         if name then currentProfessions[name] = true end
     end
     
-    NM:Log("Current active professions: " .. NM.Utils.tableToString(currentProfessions))
     
     -- Character todos
     if char.todos and char.todos.general then
-        NM:Log("Loading character todos: " .. #char.todos.general)
         for _, todo in ipairs(char.todos.general) do
             table.insert(todos, todo)
         end
@@ -291,14 +286,12 @@ function DB:GetTodos()
     
     -- Profession todos - ONLY for current professions
     if char.todos and char.todos.professions then
-        NM:Log("Checking profession todos")
         
         for profName, profTodos in pairs(char.todos.professions) do
             local normalizedProf = self:NormalizeProfessionName(profName)
             
             -- Only process if character currently has this profession
             if currentProfessions[normalizedProf] then
-                NM:Log("Loading todos for active profession: " .. normalizedProf)
                 
                 -- Check global todos for this profession
                 if NM.db.global.profession[normalizedProf] then
@@ -337,7 +330,6 @@ function DB:GetTodos()
                     table.insert(todos, todo)
                 end
             else
-                NM:Log("Skipping todos for inactive profession: " .. normalizedProf)
                 -- Optionally clean up todos for inactive professions
                 char.todos.professions[normalizedProf] = nil
             end
@@ -348,14 +340,10 @@ function DB:GetTodos()
     if char.todos and char.todos.professions then
         for profName, _ in pairs(char.todos.professions) do
             if not currentProfessions[profName] then
-                NM:Log("Cleaning up inactive profession: " .. profName)
                 char.todos.professions[profName] = nil
             end
         end
     end
-    
-    NM:Log("Total todos loaded: " .. #todos)
-    NM:Log("=== GetTodos Debug End ===")
     
     return todos
 end

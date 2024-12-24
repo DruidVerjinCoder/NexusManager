@@ -22,10 +22,11 @@ end
 
 function Challenge:SendInvites()
     if self.state then 
-        -- Nur kritische Fehler loggen
         NM:Debug("Challenge: Cannot send invites - already in progress")
         return 
     end
+    
+    NM:Debug("Challenge: Starting to send invites")
     
     self.state = "inviting"
     self.leader = UnitName("player")
@@ -40,6 +41,8 @@ function Challenge:SendInvites()
         isHost = true,
         liv = NM.session and NM.session.liv or 0
     }
+    
+    NM:Debug("Added host: " .. self.leader)
     
     local invitedCount = 0
     for i = 1, BNGetNumFriends() do
@@ -57,6 +60,8 @@ function Challenge:SendInvites()
                 online = true
             }
             
+            NM:Debug("Added participant: " .. playerName)
+            
             self:BroadcastMessage("INVITE", {
                 leader = self.leader,
                 participants = self.participants
@@ -65,6 +70,8 @@ function Challenge:SendInvites()
             invitedCount = invitedCount + 1
         end
     end
+    
+    NM:Debug("Total participants after invites: " .. NM:TableToString(self.participants))
     
     if invitedCount > 0 then
         NM:Print(string.format(L["Challenge invitations sent to %d players"], invitedCount))
@@ -76,6 +83,7 @@ function Challenge:SendInvites()
     -- UI Update für den Host
     if NM.ui.challenge then
         NM.ui.challenge:UpdateParticipants(self.participants)
+        NM.ui.challenge:UpdateUIState("inviting", true)
     end
 end
 
@@ -125,7 +133,7 @@ function Challenge:Accept()
                 -- Aktualisiere die Teilnehmerliste
                 NM.ui.challenge:UpdateParticipants(self.participants)
                 -- Aktualisiere den UI-Status für einen Teilnehmer
-                NM.ui.challenge:UpdateUIState("inviting", false)
+                NM.ui.challenge:UpdateUIState("inviting", UnitName("player") == self.leader)
             end
         end)
     end
@@ -154,15 +162,22 @@ function Challenge:Decline()
 end
 
 function Challenge:Start()
+
+    self:BroadcastMessage("START", {
+        player = UnitName("player"),
+    })
+
     if self.state ~= "inviting" then
         NM:Debug("Challenge: Cannot start - not in inviting state")
         return
     end
+
+    print("Start Challenge "..#self.participants)
     
     -- Entferne alle Teilnehmer die nicht akzeptiert haben
     local acceptedParticipants = {}
     for name, data in pairs(self.participants) do
-        if data.accepted and not data.declined then
+        if data.accepted then
             acceptedParticipants[name] = data
         end
     end
@@ -190,7 +205,7 @@ function Challenge:Start()
         NM.ui.challenge:UpdateParticipants(self.participants, self.results)
     end
     
-    NM:Print(L["Challenge started with %s participants"], #self.participants)
+    NM:Print(L["Challenge started with %d participants"], #acceptedParticipants)
 end
 
 function Challenge:Stop()
@@ -289,6 +304,8 @@ function Challenge:HandleMessage(sender, message)
         NM:Debug("Challenge: Failed to deserialize message")
         return 
     end
+
+    NM:Debug("Challenge: Received message from " .. sender .. " with type " .. data.type)
     
     if data.type == "LIVE_UPDATE" then
         -- Log nur die deserialisierten Daten
@@ -320,14 +337,8 @@ function Challenge:HandleMessage(sender, message)
     
     
     if data.type == "START" then
-        StaticPopup_Hide("NEXUSMANAGER_CHALLENGE_INVITE")
-        
-        -- Entferne alle pending Teilnehmer
-        for name, participant in pairs(self.participants) do
-            if not participant.accepted then
-                self.participants[name] = nil
-            end
-        end
+        -- Behalte die existierende Teilnehmerliste
+        local currentParticipants = self.participants
         
         -- Setze Challenge-Status
         self.state = "running"
@@ -335,15 +346,25 @@ function Challenge:HandleMessage(sender, message)
         self.duration = data.data.duration
         self.endTime = data.data.endTime
         
+        -- Verwende die übergebenen Teilnehmer, falls vorhanden, sonst behalte die aktuellen
+        if data.data.participants then
+            self.participants = data.data.participants
+        end
+        
         -- Starte lokale Session
         if NM.session then
-            NM.session:reset()  -- Reset session first
-            NM.session.state = "running"  -- Explizit den Status setzen
-        else
+            NM.session:reset()
+            NM.session.state = "running"
         end
         
         -- Starte Live-Updates
         self:StartLiveUpdates()
+        
+        -- UI Update
+        if NM.ui and NM.ui.challenge then
+            NM.ui.challenge:UpdateParticipants(self.participants)
+            NM.ui.challenge:UpdateUIState("running", UnitName("player") == self.leader)
+        end
         
         NM:Print(L["Challenge started!"])
     end
@@ -358,16 +379,18 @@ function Challenge:HandleMessage(sender, message)
         -- Aktualisiere die Teilnehmerliste
         if self.participants[data.data.player] then
             self.participants[data.data.player].accepted = true
-            self.participants[data.data.player].liv = 0  -- Initialisiere LIV
+            self.participants[data.data.player].liv = 0
             
             -- Broadcast den neuen Status an alle
             self:BroadcastMessage("UPDATE_PARTICIPANTS", {
-                participants = self.participants
+                participants = self.participants,
+                state = self.state
             })
             
             -- UI Update
             if NM.ui and NM.ui.challenge then
                 NM.ui.challenge:UpdateParticipants(self.participants, self.results)
+                NM.ui.challenge:UpdateUIState("inviting", UnitName("player") == self.leader)
             end
         end
         
@@ -399,8 +422,13 @@ function Challenge:HandleMessage(sender, message)
     elseif data.type == "UPDATE_PARTICIPANTS" then
         -- Alle Teilnehmer aktualisieren ihre Liste
         self.participants = data.data.participants
-        NM:LogTable(data.data.participants)
-        NM.ui.challenge:UpdateParticipants(self.participants, self.results)
+        self.state = data.data.state or self.state
+        
+        -- UI Update für alle Teilnehmer
+        if NM.ui and NM.ui.challenge then
+            NM.ui.challenge:UpdateParticipants(self.participants, self.results)
+            NM.ui.challenge:UpdateUIState(self.state, UnitName("player") == self.leader)
+        end
         
     elseif data.type == "LIVE_UPDATE" then
         if self.state == "running" then

@@ -68,7 +68,14 @@ function ChallengeTab:Create()
     startButton:SetWidth(self.WINDOW_CONFIG.BUTTON_WIDTH)
     startButton:SetDisabled(true)  -- Initial deaktiviert
     startButton:SetCallback("OnClick", function()
-        NM.Challenge:Start()
+
+        -- Starte Session des Leaders/Hosts
+        if NM.session then
+            NM.session:reset()
+            NM.session.state = "running"
+        end
+
+        NM.Challenge:Start(NM.Challenge.participants)
     end)
     buttonContainer:AddChild(startButton)
     
@@ -173,9 +180,10 @@ function ChallengeTab:Create()
             participantsScroll:AddChild(playerRow)
         end
 
-        if not participantsContainer then
-            print("participantsContainer is nil")
+        if participants == nil then
+            NM.Challenge:BroadcastMessage("UPDATE_PARTICIPANTS", participants)
         end
+
     end
     
     -- Neue UpdateResults Funktion
