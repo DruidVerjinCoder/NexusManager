@@ -361,22 +361,14 @@ function ChallengeTab:UpdateParticipants(participants)
     
     -- Aktualisiere das Layout
     self.participantContainer:DoLayout()
+    
+    -- Aktualisiere auch die Navigation, wenn ein Details-Frame offen ist
+    self:UpdateNavigation()
 end
 
 -- Neue Funktion für den Item-Details Frame
 function ChallengeTab:ShowItemDetails(playerName)
-    if self.itemDetailsFrame then
-        if self.currentDetailPlayer == playerName then
-            self.itemDetailsFrame:Hide()
-            self.itemDetailsFrame = nil
-            self.currentDetailPlayer = nil
-            return
-        else
-            self.itemDetailsFrame.TitleContainer.TitleText:SetText(string.format(L["Items for %s"], playerName))
-            self:UpdateItemList(playerName)
-            return
-        end
-    end
+    if not playerName then return end
 
     -- Erstelle neuen Frame mit Blizzard Template
     local frame = CreateFrame("Frame", "NMItemDetailsFrame", UIParent, "ButtonFrameTemplate")
@@ -508,121 +500,9 @@ function ChallengeTab:ShowItemDetails(playerName)
     
     -- Dann Update der Items und Stats mit echten Daten
     self:UpdateItemList(playerName)
-    
-    -- Navigation Container unterhalb der Statistiken
-    local navContainer = AceGUI:Create("SimpleGroup")
-    navContainer:SetLayout("Flow")
-    navContainer:SetFullWidth(true)
-    navContainer:SetHeight(40)
-    container:AddChild(navContainer)
-    
-    -- Previous Button mit Spielername
-    local prevContainer = AceGUI:Create("SimpleGroup")
-    prevContainer:SetLayout("Flow")
-    prevContainer:SetWidth(180)
-    prevContainer:SetHeight(30)
-    
-    local prevButton = AceGUI:Create("Button")
-    prevButton:SetText("←")
-    prevButton:SetWidth(30)
-    
-    local prevPlayerLabel = AceGUI:Create("Label")
-    prevPlayerLabel:SetWidth(140)
-    
-    prevContainer:AddChild(prevButton)
-    prevContainer:AddChild(prevPlayerLabel)
-    
-    -- Spacer für Zentrierung
-    local spacer = AceGUI:Create("SimpleGroup")
-    spacer:SetLayout("Flow")
-    spacer:SetWidth(40)
-    spacer:SetHeight(30)
-    
-    -- Next Button mit Spielername
-    local nextContainer = AceGUI:Create("SimpleGroup")
-    nextContainer:SetLayout("Flow")
-    nextContainer:SetWidth(180)
-    nextContainer:SetHeight(30)
-    
-    local nextPlayerLabel = AceGUI:Create("Label")
-    nextPlayerLabel:SetWidth(140)
-    nextPlayerLabel:SetJustifyH("RIGHT")
-    
-    local nextButton = AceGUI:Create("Button")
-    nextButton:SetText("→")
-    nextButton:SetWidth(30)
-    
-    nextContainer:AddChild(nextPlayerLabel)
-    nextContainer:AddChild(nextButton)
-    
-    -- Füge alle Container zur Navigation hinzu
-    navContainer:AddChild(prevContainer)
-    navContainer:AddChild(spacer)
-    navContainer:AddChild(nextContainer)
-    
-    -- Navigation Funktionalität
-    local function GetSortedParticipants()
-        local participants = {}
-        for name, _ in pairs(NM.Challenge.participants) do
-            table.insert(participants, name)
-        end
-        table.sort(participants)
-        return participants
-    end
-    
-    local function UpdateNavButtons()
-        local participants = GetSortedParticipants()
-        local currentIndex = 1
-        
-        -- Finde aktuellen Index
-        for i, name in ipairs(participants) do
-            if name == playerName then
-                currentIndex = i
-                break
-            end
-        end
-        
-        -- Update Button Status und Labels
-        if currentIndex > 1 then
-            prevButton:SetDisabled(false)
-            local prevName = participants[currentIndex - 1]
-            prevPlayerLabel:SetText(prevName)
-        else
-            prevButton:SetDisabled(true)
-            prevPlayerLabel:SetText("")
-        end
-        
-        if currentIndex < #participants then
-            nextButton:SetDisabled(false)
-            local nextName = participants[currentIndex + 1]
-            nextPlayerLabel:SetText(nextName)
-        else
-            nextButton:SetDisabled(true)
-            nextPlayerLabel:SetText("")
-        end
-        
-        -- Speichere Index für spätere Verwendung
-        frame.currentParticipantIndex = currentIndex
-        frame.participants = participants
-    end
-    
-    -- Click Handler
-    prevButton:SetCallback("OnClick", function()
-        if frame.currentParticipantIndex > 1 then
-            local prevName = frame.participants[frame.currentParticipantIndex - 1]
-            self:ShowItemDetails(prevName)
-        end
-    end)
-    
-    nextButton:SetCallback("OnClick", function()
-        if frame.currentParticipantIndex < #frame.participants then
-            local nextName = frame.participants[frame.currentParticipantIndex + 1]
-            self:ShowItemDetails(nextName)
-        end
-    end)
-    
-    -- Initial Update der Navigation
-    UpdateNavButtons()
+   
+ 
+
 end
 
 function ChallengeTab:SortItems(playerName, column)
@@ -699,11 +579,25 @@ function ChallengeTab:UpdateItemList(playerName)
     end)
     
     -- Items anzeigen
-    for _, item in ipairs(items) do
+    for index, item in ipairs(items) do
         local itemRow = AceGUI:Create("SimpleGroup")
         itemRow:SetLayout("Flow")
         itemRow:SetFullWidth(true)
-        itemRow:SetHeight(30)  -- Höhere Zeilen für TSM Werte
+        itemRow:SetHeight(30)
+        
+        -- Alternierender Hintergrund
+        if index % 2 == 0 then
+            local bg = itemRow.frame:CreateTexture(nil, "BACKGROUND")
+            bg:SetAllPoints()
+            bg:SetColorTexture(0.2, 0.2, 0.2, 0.3)  -- Dunkelgrauer Hintergrund
+        end
+        
+        -- Hover Effekt
+        itemRow.frame:SetScript("OnEnter", function()
+            local highlight = itemRow.frame:CreateTexture(nil, "HIGHLIGHT")
+            highlight:SetAllPoints()
+            highlight:SetColorTexture(0.3, 0.3, 0.3, 0.3)  -- Hellerer Hintergrund beim Hover
+        end)
         
         -- Item Icon mit Tooltip
         local itemIcon = AceGUI:Create("Icon")
@@ -758,7 +652,7 @@ function ChallengeTab:UpdateItemList(playerName)
         scroll:AddChild(itemRow)
     end
     
-    -- Update Stats erst nachdem wir die Daten haben
+    -- Update Stats
     self:UpdateStats(stats)
 end
 
@@ -908,4 +802,19 @@ function NM:GetUnitIDFromName(fullName)
 end
 
 NM.ChallengeTab = ChallengeTab
+
+-- Füge diese neue Funktion hinzu
+function ChallengeTab:UpdateNavigation()
+    if self.itemDetailsFrame and self.itemDetailsFrame.UpdateNavigation then
+        self.itemDetailsFrame.UpdateNavigation()
+    end
+end
+
+-- Aktualisiere die bestehende UpdateResults Funktion
+function ChallengeTab:UpdateResults(results)
+    -- ... (bestehender Code) ...
+    
+    -- Aktualisiere auch die Navigation
+    self:UpdateNavigation()
+end
 
