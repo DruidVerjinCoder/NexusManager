@@ -250,10 +250,25 @@ function ItemsContainer:Update()
     end)
     
     -- Zeige Items an
-    for _, item in ipairs(itemsList) do
+    for index, item in ipairs(itemsList) do
         local row = AceGUI:Create("SimpleGroup")
         row:SetFullWidth(true)
         row:SetLayout("Flow")
+        row:SetHeight(self.WINDOW_CONFIG.ROW_HEIGHT)
+        
+        -- Alternierender Hintergrund
+        if index % 2 == 0 then
+            local bg = row.frame:CreateTexture(nil, "BACKGROUND")
+            bg:SetAllPoints()
+            bg:SetColorTexture(0.2, 0.2, 0.2, 0.3)
+        end
+        
+        -- Hover Effekt
+        row.frame:SetScript("OnEnter", function()
+            local highlight = row.frame:CreateTexture(nil, "HIGHLIGHT")
+            highlight:SetAllPoints()
+            highlight:SetColorTexture(0.3, 0.3, 0.3, 0.3)
+        end)
         
         -- Icon
         local icon = AceGUI:Create("Icon")
@@ -284,6 +299,8 @@ function ItemsContainer:Update()
     end
     
     -- Update Total Row
+    self.totalRow:ReleaseChildren()
+    
     local totalLabel = AceGUI:Create("Label")
     totalLabel:SetText("Total:")
     totalLabel:SetWidth(self.WINDOW_CONFIG.COLUMNS.NAME.width)

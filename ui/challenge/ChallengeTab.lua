@@ -520,7 +520,7 @@ function ChallengeTab:UpdateItemList(playerName)
     if not self.itemDetailsFrame then return end
     
     local scroll = self.itemDetailsFrame.scroll
-    scroll:ReleaseChildren()
+    scroll:ReleaseChildren()  -- Wichtig: Alle Kinder freigeben vor dem Neuaufbau
     
     -- Items sammeln und sortieren
     local items = {}
@@ -578,18 +578,18 @@ function ChallengeTab:UpdateItemList(playerName)
         end
     end)
     
-    -- Items anzeigen
+    -- Items anzeigen mit Index-basiertem Highlighting
     for index, item in ipairs(items) do
         local itemRow = AceGUI:Create("SimpleGroup")
         itemRow:SetLayout("Flow")
         itemRow:SetFullWidth(true)
         itemRow:SetHeight(30)
         
-        -- Alternierender Hintergrund
+        -- Alternierender Hintergrund basierend auf aktuellem Index
         if index % 2 == 0 then
             local bg = itemRow.frame:CreateTexture(nil, "BACKGROUND")
             bg:SetAllPoints()
-            bg:SetColorTexture(0.2, 0.2, 0.2, 0.3)  -- Dunkelgrauer Hintergrund
+            bg:SetColorTexture(0.2, 0.2, 0.2, 0.3)
         end
         
         -- Hover Effekt
