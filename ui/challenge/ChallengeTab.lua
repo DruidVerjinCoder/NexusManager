@@ -384,7 +384,7 @@ function ChallengeTab:ShowItemDetails(playerName)
         frame:SetTitle(string.format(L["Items for %s"], playerName))
         frame:SetLayout("List")
         frame:SetWidth(400)
-        frame:SetHeight(500)  -- Erhöht für Stats-Bereich
+        frame:SetHeight(550)  -- Erhöhte Höhe für besseres Layout
 
         -- Header mit Sortierbuttons und Refresh
         local headerGroup = AceGUI:Create("SimpleGroup")
@@ -395,23 +395,15 @@ function ChallengeTab:ShowItemDetails(playerName)
         -- Sortierbuttons
         local nameSort = AceGUI:Create("Button")
         nameSort:SetText(L["Name"])
-        nameSort:SetWidth(120)
+        nameSort:SetWidth(200)  -- Breiter für Name + Count
         nameSort:SetCallback("OnClick", function() 
             self:SortItems(playerName, "name") 
         end)
         headerGroup:AddChild(nameSort)
 
-        local countSort = AceGUI:Create("Button")
-        countSort:SetText(L["Count"])
-        countSort:SetWidth(80)
-        nameSort:SetCallback("OnClick", function() 
-            self:SortItems(playerName, "count") 
-        end)
-        headerGroup:AddChild(countSort)
-
         local valueSort = AceGUI:Create("Button")
         valueSort:SetText(L["Value"])
-        valueSort:SetWidth(80)
+        valueSort:SetWidth(120)  -- Breiter für TSM Werte
         valueSort:SetCallback("OnClick", function() 
             self:SortItems(playerName, "totalValue") 
         end)
@@ -434,30 +426,30 @@ function ChallengeTab:ShowItemDetails(playerName)
         local scroll = AceGUI:Create("ScrollFrame")
         scroll:SetLayout("Flow")
         scroll:SetFullWidth(true)
-        scroll:SetHeight(350)  -- Feste Höhe, um Platz für Stats zu lassen
+        scroll:SetHeight(400)  -- Mehr Platz für Items
         frame:AddChild(scroll)
         
-        -- Stats Container
+        -- Stats Container innerhalb des Frames
         local statsContainer = AceGUI:Create("InlineGroup")
         statsContainer:SetLayout("Flow")
         statsContainer:SetFullWidth(true)
-        statsContainer:SetHeight(100)
+        statsContainer:SetHeight(80)  -- Reduzierte Höhe
         statsContainer:SetTitle(L["Statistics"])
+        frame:AddChild(statsContainer)
         
-        -- Erstelle zwei Spalten für Stats
+        -- Zwei Spalten für Stats
         local leftColumn = AceGUI:Create("SimpleGroup")
         leftColumn:SetLayout("List")
         leftColumn:SetWidth(180)
-        leftColumn:SetHeight(80)
+        leftColumn:SetHeight(60)
         
         local rightColumn = AceGUI:Create("SimpleGroup")
         rightColumn:SetLayout("List")
         rightColumn:SetWidth(180)
-        rightColumn:SetHeight(80)
+        rightColumn:SetHeight(60)
         
         statsContainer:AddChild(leftColumn)
         statsContainer:AddChild(rightColumn)
-        frame:AddChild(statsContainer)
         
         -- Speichere Referenzen
         frame.scroll = scroll
@@ -470,13 +462,13 @@ function ChallengeTab:ShowItemDetails(playerName)
             column = "totalValue",
             ascending = false
         }
+        
+        -- Speichere aktuellen Spieler
+        self.currentDetailPlayer = playerName
+        
+        -- Initial Update
+        self:UpdateItemList(playerName)
     end
-    
-    -- Speichere aktuellen Spieler
-    self.currentDetailPlayer = playerName
-    
-    -- Initial Update
-    self:UpdateItemList(playerName)
 end
 
 function ChallengeTab:SortItems(playerName, column)
@@ -550,6 +542,7 @@ function ChallengeTab:UpdateItemList(playerName)
         local itemRow = AceGUI:Create("SimpleGroup")
         itemRow:SetLayout("Flow")
         itemRow:SetFullWidth(true)
+        itemRow:SetHeight(30)  -- Höhere Zeilen für TSM Werte
         
         -- Item Icon mit Tooltip
         local itemIcon = AceGUI:Create("Icon")
@@ -567,13 +560,14 @@ function ChallengeTab:UpdateItemList(playerName)
         end)
         itemRow:AddChild(itemIcon)
         
-        -- Item Name mit Tooltip
+        -- Item Name mit Count
         local itemLabel = AceGUI:Create("InteractiveLabel")
-        itemLabel:SetText(item.name)
-        itemLabel:SetWidth(150)
+        local displayText = string.format("%s |cFF888888x%d|r", item.name, item.count)
+        itemLabel:SetText(displayText)
+        itemLabel:SetWidth(200)
         
         -- Farbe basierend auf Seltenheit
-        local r, g, b = C_Item.GetItemQualityColor(item.rarity)
+        local r, g, b = GetItemQualityColor(item.rarity)
         itemLabel:SetColor(r, g, b)
         
         -- Tooltip und Chat Link
@@ -591,24 +585,14 @@ function ChallengeTab:UpdateItemList(playerName)
             end
         end)
         itemRow:AddChild(itemLabel)
-
-        -- Anzahl
-        local countLabel = AceGUI:Create("Label")
-        countLabel:SetText(item.count)
-        countLabel:SetWidth(40)
-        itemRow:AddChild(countLabel)
         
-        -- Einzelwert (TSM)
+        -- TSM Wert (Einzeln und Gesamt)
         local valueLabel = AceGUI:Create("Label")
-        valueLabel:SetText(NM.UIFunctions:FormatGold(item.value))
-        valueLabel:SetWidth(80)
+        valueLabel:SetText(string.format("%s\n|cFF888888%s|r", 
+            NM.UIFunctions:FormatGold(item.totalValue),
+            NM.UIFunctions:FormatGold(item.value)))
+        valueLabel:SetWidth(120)
         itemRow:AddChild(valueLabel)
-        
-        -- Gesamtwert (TSM × Anzahl)
-        local totalValueLabel = AceGUI:Create("Label")
-        totalValueLabel:SetText(NM.UIFunctions:FormatGold(item.totalValue))
-        totalValueLabel:SetWidth(80)
-        itemRow:AddChild(totalValueLabel)
         
         scroll:AddChild(itemRow)
     end
