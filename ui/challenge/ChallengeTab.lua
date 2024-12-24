@@ -388,11 +388,25 @@ function ChallengeTab:ShowItemDetails(playerName)
         frame:SetScript("OnDragStart", frame.StartMoving)
         frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
         
+        -- Setze Portrait
+        frame.portrait = frame.PortraitContainer.portrait
+        SetPortraitTexture(frame.portrait, playerName)
+        
+        -- Fallback auf Klassen-Icon falls kein Portrait verfügbar
+        if not frame.portrait:GetTexture() then
+            local _, class = GetPlayerInfoByGUID(UnitGUID(playerName))
+            if class then
+                local coords = CLASS_ICON_TCOORDS[class]
+                frame.portrait:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
+                if coords then
+                    frame.portrait:SetTexCoord(unpack(coords))
+                end
+            end
+        end
+        
         -- Setze Titel
-        frame.titleText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        frame.titleText:SetPoint("TOP", frame, "TOP", 0, -5)
-        frame.titleText:SetText(string.format(L["Items for %s"], playerName))
-
+        frame.TitleContainer.TitleText:SetText(string.format(L["Items for %s"], playerName))
+        
         -- Erstelle AceGUI Container innerhalb des Blizzard Frames
         local container = AceGUI:Create("SimpleGroup")
         container:SetLayout("List")
@@ -630,62 +644,59 @@ end
 function ChallengeTab:UpdateStats(stats)
     if not self.itemDetailsFrame then return end
     
-    local leftColumn = self.itemDetailsFrame.leftColumn
-    local rightColumn = self.itemDetailsFrame.rightColumn
+    local statsContainer = self.itemDetailsFrame.container.children[3] -- Das InlineGroup für Stats
+    statsContainer:ReleaseChildren()
     
-    leftColumn:ReleaseChildren()
-    rightColumn:ReleaseChildren()
+    -- Erstelle eine einzelne Gruppe für alle Stats
+    local statsGroup = AceGUI:Create("SimpleGroup")
+    statsGroup:SetLayout("Flow")
+    statsGroup:SetFullWidth(true)
+    statsGroup:SetHeight(60)
     
-    -- Linke Spalte - Items LIV
-    local livRow = AceGUI:Create("SimpleGroup")
-    livRow:SetLayout("Flow")
-    livRow:SetFullWidth(true)
+    -- Items LIV
+    local livLabel = AceGUI:Create("Label")
+    livLabel:SetText(L["Items LIV"] .. ":")
+    livLabel:SetWidth(100)
+    statsGroup:AddChild(livLabel)
     
-    local itemsLIVLabel = AceGUI:Create("Label")
-    itemsLIVLabel:SetText(L["Items LIV"] .. ":")
-    itemsLIVLabel:SetWidth(100)
-    livRow:AddChild(itemsLIVLabel)
+    local livValue = AceGUI:Create("Label")
+    livValue:SetText(NM.UIFunctions:FormatGold(stats.totalLIV))
+    livValue:SetWidth(80)
+    statsGroup:AddChild(livValue)
     
-    local itemsLIVValue = AceGUI:Create("Label")
-    itemsLIVValue:SetText(NM.UIFunctions:FormatGold(stats.totalLIV))
-    itemsLIVValue:SetWidth(80)
-    livRow:AddChild(itemsLIVValue)
+    -- Spacer
+    local spacer = AceGUI:Create("Label")
+    spacer:SetWidth(20)
+    statsGroup:AddChild(spacer)
     
-    leftColumn:AddChild(livRow)
+    -- Looted Gold
+    local lootedLabel = AceGUI:Create("Label")
+    lootedLabel:SetText(L["Looted Gold"] .. ":")
+    lootedLabel:SetWidth(100)
+    statsGroup:AddChild(lootedLabel)
     
-    -- Rechte Spalte - Looted Gold
-    local lootedRow = AceGUI:Create("SimpleGroup")
-    lootedRow:SetLayout("Flow")
-    lootedRow:SetFullWidth(true)
+    local lootedValue = AceGUI:Create("Label")
+    lootedValue:SetText(NM.UIFunctions:FormatGold(stats.lootedGold))
+    lootedValue:SetWidth(80)
+    statsGroup:AddChild(lootedValue)
     
-    local lootedGoldLabel = AceGUI:Create("Label")
-    lootedGoldLabel:SetText(L["Looted Gold"] .. ":")
-    lootedGoldLabel:SetWidth(100)
-    lootedRow:AddChild(lootedGoldLabel)
-    
-    local lootedGoldValue = AceGUI:Create("Label")
-    lootedGoldValue:SetText(NM.UIFunctions:FormatGold(stats.lootedGold))
-    lootedGoldValue:SetWidth(80)
-    lootedRow:AddChild(lootedGoldValue)
-    
-    rightColumn:AddChild(lootedRow)
+    -- Spacer
+    local spacer2 = AceGUI:Create("Label")
+    spacer2:SetWidth(20)
+    statsGroup:AddChild(spacer2)
     
     -- Total Gold
-    local totalRow = AceGUI:Create("SimpleGroup")
-    totalRow:SetLayout("Flow")
-    totalRow:SetFullWidth(true)
+    local totalLabel = AceGUI:Create("Label")
+    totalLabel:SetText(L["Total Gold"] .. ":")
+    totalLabel:SetWidth(100)
+    statsGroup:AddChild(totalLabel)
     
-    local totalGoldLabel = AceGUI:Create("Label")
-    totalGoldLabel:SetText(L["Total Gold"] .. ":")
-    totalGoldLabel:SetWidth(100)
-    totalRow:AddChild(totalGoldLabel)
+    local totalValue = AceGUI:Create("Label")
+    totalValue:SetText(NM.UIFunctions:FormatGold(stats.totalGold))
+    totalValue:SetWidth(80)
+    statsGroup:AddChild(totalValue)
     
-    local totalGoldValue = AceGUI:Create("Label")
-    totalGoldValue:SetText(NM.UIFunctions:FormatGold(stats.totalGold))
-    totalGoldValue:SetWidth(80)
-    totalRow:AddChild(totalGoldValue)
-    
-    rightColumn:AddChild(totalRow)
+    statsContainer:AddChild(statsGroup)
 end
 
 NM.ChallengeTab = ChallengeTab
