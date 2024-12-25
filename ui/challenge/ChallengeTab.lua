@@ -77,6 +77,18 @@ function ChallengeTab:Create()
         -- Setze Challenge-Status auf "running"
         NM.Challenge.state = "running"
 
+        -- Initialisiere Results für den Solo-Spieler
+        local playerName = UnitName("player")
+        if not NM.Challenge.results then
+            NM.Challenge.results = {}
+        end
+        NM.Challenge.results[playerName] = {
+            liv = 0,
+            items = {},
+            totalGold = 0,
+            lootedGold = 0
+        }
+
         -- Starte die Challenge
         NM.Challenge:Start(NM.Challenge.participants)
         
@@ -85,6 +97,15 @@ function ChallengeTab:Create()
         
         -- Aktualisiere die Teilnehmerliste
         container:UpdateParticipants(NM.Challenge.participants, NM.Challenge.results)
+        
+        -- Starte regelmäßige Updates
+        if not NM.Challenge.updateTimer then
+            NM.Challenge.updateTimer = C_Timer.NewTicker(1, function()
+                if NM.session and NM.session.state == "running" then
+                    NM.session:SendChallengeUpdate()
+                end
+            end)
+        end
     end)
     buttonContainer:AddChild(startButton)
     
@@ -124,13 +145,26 @@ function ChallengeTab:Create()
     function container:UpdateParticipants(participants, results)
         participantsScroll:ReleaseChildren()
         
+        -- Stelle sicher, dass results existiert
+        results = results or {}
+        
         -- Sortiere Teilnehmer nach LIV
         local sortedParticipants = {}
         for name, data in pairs(participants) do
+            -- Initialisiere results für neue Teilnehmer
+            if not results[name] then
+                results[name] = {
+                    liv = 0,
+                    items = {},
+                    totalGold = 0,
+                    lootedGold = 0
+                }
+            end
+            
             table.insert(sortedParticipants, {
                 name = name,
                 data = data,
-                liv = results and results[name] and results[name].liv or 0
+                liv = results[name].liv or 0
             })
         end
         table.sort(sortedParticipants, function(a, b) return a.liv > b.liv end)

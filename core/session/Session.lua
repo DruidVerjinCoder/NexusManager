@@ -290,15 +290,11 @@ end
 
 -- Neue Funktion für Challenge Updates
 function session:SendChallengeUpdate()
-   if not self.state == "running" then
+   if self.state ~= "running" then
       return
    end
    
-   if not NM.Challenge then
-      return
-   end
-   
-   if not NM.Challenge.state == "running" then
+   if not NM.Challenge or NM.Challenge.state ~= "running" then
       return
    end
 
@@ -310,6 +306,23 @@ function session:SendChallengeUpdate()
       lootedGold = self.lootedGold
    }
    
+   -- Update lokale Results direkt
+   if not NM.Challenge.results then
+      NM.Challenge.results = {}
+   end
+   NM.Challenge.results[currentData.player] = {
+      liv = currentData.liv,
+      items = currentData.items,
+      totalGold = currentData.totalGold,
+      lootedGold = currentData.lootedGold
+   }
+   
+   -- UI aktualisieren
+   if NM.ChallengeTab then
+      NM.ChallengeTab:UpdateResults(NM.Challenge.results)
+   end
+   
+   -- Broadcast nur wenn es andere Teilnehmer gibt
    if NM.Challenge.BroadcastMessage then
       NM.Challenge:BroadcastMessage("LIVE_UPDATE", currentData)
    end
