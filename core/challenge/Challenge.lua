@@ -80,6 +80,7 @@ function Challenge:SendInvites()
             }
             
             self:BroadcastMessage("INVITE", {
+                key = self.key,
                 leader = self.leader,
                 participants = self.participants
             }, i)
@@ -332,6 +333,19 @@ function Challenge:HandleMessage(sender, message)
     local success, data = AceSerializer:Deserialize(message)
     if not success then return end
     
+    if data.type == "CANCEL_CHALLENGE" then
+        NM:Print("CANCEL ||Challenge key: " .. self.key)
+        -- Prüfe ob der Key übereinstimmt
+        if data.data.key and data.data.key == self.key then
+            NM:Print("Challenge canceled by " .. sender)
+            if data.data.message then
+                self:ShowFloatingText(data.data.message)
+            end
+            self:Reset()
+        end
+        return
+    end
+    
     if data.type == "CHALLENGE_START" then
         -- Behalte die existierende Teilnehmerliste
         local currentParticipants = self.participants
@@ -398,11 +412,6 @@ function Challenge:HandleMessage(sender, message)
         -- Zeige schwebenden Text an
         self:ShowFloatingText(L["Challenge Complete!"])
 
-    elseif data.type == "CANCEL_CHALLENGE" then
-            if data.message then
-                NM:Print(data.message)
-            end
-            self:Reset()
     elseif data.type == "LIVE_UPDATE" then
         -- Verarbeite LIVE_UPDATE nur wenn Challenge aktiv ist oder gerade beendet wurde
         if self.state == "running" then
@@ -430,6 +439,7 @@ function Challenge:HandleMessage(sender, message)
         self.state = "pending"
         self.leader = data.data.leader
         self.participants = data.data.participants
+        self.key = data.data.key
         NM:ShowChallengeInvite(sender, data.data)
         
     elseif data.type == "ACCEPT" then

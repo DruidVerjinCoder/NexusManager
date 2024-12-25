@@ -50,7 +50,8 @@ function ChallengeTab:Create()
         if NM.Challenge and NM.Challenge.participants and next(NM.Challenge.participants) then
             -- Sende Cancel-Nachricht an alle Teilnehmer
             NM.Challenge:BroadcastMessage("CANCEL_CHALLENGE", {
-                message = L["Host has cancelled the challenge"]
+                message = L["Host has cancelled the challenge"],
+                key = NM.Challenge.key  -- Sende den Key mit
             })
         end
         
@@ -63,15 +64,27 @@ function ChallengeTab:Create()
         durationInput:SetDisabled(false)
         durationInput:SetText("30")
         
-        -- Verstecke nur die Teilnehmerliste
+        -- Verstecke Teilnehmerliste
         if participantsContainer then
             participantsContainer.frame:Hide()
         end
         
-        -- Deaktiviere Start Button
+        -- Buttons zurücksetzen
         if startButton then
             startButton:SetDisabled(true)
         end
+        if inviteButton then
+            inviteButton:SetDisabled(false)
+        end
+        
+        -- Key-Anzeige leeren
+        if keyBox then
+            keyBox:SetText("")
+        end
+
+        -- UI Status zurücksetzen
+        container:UpdateUIState("inviting", false)
+        
     end)
 
     -- Füge Duration Input und Reset Button nebeneinander hinzu
