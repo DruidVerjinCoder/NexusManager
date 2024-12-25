@@ -921,70 +921,70 @@ function DB:ShouldTrackItem(itemID)
     local profileName = characterName .. " - " .. realmName
     
     -- Get item info
-    local itemName, _, itemRarity, _, _, _, subType, _, _, _, _, classID, subclassID = C_Item.GetItemInfo(itemID)
+    local itemName, _, itemRarity, _, _, itemType, subType, _, _, _, _, classID, subclassID = C_Item.GetItemInfo(itemID)
     if not itemName then return false end
 
     -- Debug output
-    -- NM:Log("=== ShouldTrackItem Debug ===")
-    -- NM:Log(string.format("Checking item: %s (ID: %d)", itemName, itemID))
-    -- NM:Log(string.format("Profile: %s", profileName))
-    -- NM:Log(string.format("ClassID: %d, SubclassID: %d", classID, subclassID))
+    NM:Log("=== ShouldTrackItem Debug ===")
+    NM:Log(string.format("Checking item: %s (ID: %d)", itemName, itemID))
+    NM:Log(string.format("Type: %s, Rarity: %d", itemType or "nil", itemRarity or -1))
     
-    -- Debug der Profile-Struktur
-    if NM.db.profiles[profileName] then
-        -- NM:Log("Profile found")
-        if NM.db.profiles[profileName].scrollFrame then
-            -- NM:Log("ScrollFrame settings found:")
-            for k, v in pairs(NM.db.profiles[profileName].scrollFrame) do
-                -- NM:Log(string.format("  %s = %s", k, tostring(v)))
-            end
-        else
-            -- NM:Log("No scrollFrame settings found!")
-        end
-    else
-        -- NM:Log("Profile not found!")
+    if not NM.db.profiles[profileName] then
+        NM:Log("Profile not found!")
+        return false
+    end
+    
+    local settings = NM.db.profiles[profileName].scrollFrame
+    if not settings then
+        NM:Log("No scrollFrame settings found!")
         return false
     end
 
+    -- Prüfe Rüstung und Waffen basierend auf Rarität
+    if itemType == "Armor" or itemType == "Weapon" then
+        local rarityMap = {
+            [0] = "poor",
+            [1] = "common",
+            [2] = "uncommon",
+            [3] = "rare",
+            [4] = "epic",
+            [5] = "legendary"
+        }
+        
+        local rarityKey = rarityMap[itemRarity]
+        if rarityKey and settings[rarityKey] then
+            NM:Log(string.format("Item is %s %s, tracking enabled", rarityKey, itemType))
+            return true
+        end
+    end
+    
     -- Handelswaren
     if classID == 7 then
-        -- NM:Log("Item is Trade Good")
-        if NM.db.profiles[profileName] and NM.db.profiles[profileName].scrollFrame then
-            local settings = NM.db.profiles[profileName].scrollFrame
-            
-            -- Mapping von SubclassID zu Setting-Namen
-            local subclassMap = {
-                [1] = "parts",           -- Teile
-                [2] = "explosives",      -- Sprengstoff
-                [3] = "devices",         -- Geräte
-                [4] = "jewelcrafting",   -- Juwelenschleifen
-                [5] = "cloth",           -- Stoff
-                [6] = "leather",         -- Leder
-                [7] = "metalStone",      -- Erze & Steine
-                [8] = "cooking",         -- Kochkunst
-                [9] = "herb",            -- Kräuter
-                [10] = "elemental",      -- Elementar
-                [11] = "enchanting",     -- Verzauberkunst
-                [12] = "inscription",    -- Inschriftenkunde
-                [13] = "other"          -- Sonstiges
-            }
-            
-            local settingName = subclassMap[subclassID]
-            if settingName then
-                local isEnabled = settings[settingName]
-                -- NM:Log(string.format("Item is %s, setting: %s", settingName, tostring(isEnabled)))
-                return isEnabled
-            else
-                -- NM:Log(string.format("Unknown subclass ID: %d", subclassID))
-            end
-        else
-            -- NM:Log("No scrollFrame settings found")
+        -- Mapping von SubclassID zu Setting-Namen
+        local subclassMap = {
+            [1] = "parts",           -- Teile
+            [2] = "explosives",      -- Sprengstoff
+            [3] = "devices",         -- Geräte
+            [4] = "jewelcrafting",   -- Juwelenschleifen
+            [5] = "cloth",           -- Stoff
+            [6] = "leather",         -- Leder
+            [7] = "metalStone",      -- Erze & Steine
+            [8] = "cooking",         -- Kochkunst
+            [9] = "herb",            -- Kräuter
+            [10] = "elemental",      -- Elementar
+            [11] = "enchanting",     -- Verzauberkunst
+            [12] = "inscription",    -- Inschriftenkunde
+            [13] = "other"          -- Sonstiges
+        }
+        
+        local settingName = subclassMap[subclassID]
+        if settingName and settings[settingName] then
+            NM:Log(string.format("Item is %s, tracking enabled", settingName))
+            return true
         end
-    else
-        -- NM:Log("Item is not a Trade Good")
     end
 
-    -- NM:Log("Returning false by default")
+    NM:Log("Item not tracked")
     return false
 end
 
