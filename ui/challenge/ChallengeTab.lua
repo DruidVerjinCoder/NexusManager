@@ -139,6 +139,13 @@ function ChallengeTab:Create()
             lootedGold = 0
         }
 
+        -- Stelle sicher, dass die Duration gesetzt ist
+        if not NM.Challenge.duration or NM.Challenge.duration <= 0 then
+            -- Verwende den Wert aus dem Input-Feld
+            local minutes = tonumber(durationInput:GetText()) or 30
+            NM.Challenge.duration = minutes * 60 -- Konvertiere zu Sekunden
+        end
+
         -- Starte die Challenge
         NM.Challenge:Start(NM.Challenge.participants)
         
@@ -147,6 +154,9 @@ function ChallengeTab:Create()
         
         -- Aktualisiere die Teilnehmerliste
         container:UpdateParticipants(NM.Challenge.participants, NM.Challenge.results)
+        
+        -- Debug print
+        print("Starting timer with duration:", NM.Challenge.duration, "seconds")
         
         -- Starte Timer
         ChallengeTab:StartTimer(NM.Challenge.duration)
