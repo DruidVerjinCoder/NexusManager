@@ -370,6 +370,9 @@ function Challenge:HandleMessage(sender, message)
     end
 
     if data.type == "CHALLENGE_END" then
+        
+
+
         NM.session:pause()
         NM:Print(L["Challenge ended!"])
         self:ShowFloatingText(L["Challenge Complete!"])
