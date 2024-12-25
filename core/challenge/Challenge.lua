@@ -179,14 +179,10 @@ function Challenge:Decline()
 end
 
 function Challenge:Start()
-    if not self.state or self.state ~= "inviting" then
-        return
-    end
-    
     -- Prüfe ob es überhaupt akzeptierte Teilnehmer gibt
     local hasAcceptedParticipants = false
     for _, participant in pairs(self.participants) do
-        if participant.accepted then
+        if participant.accepted and not participant.declined then
             hasAcceptedParticipants = true
             break
         end
@@ -197,12 +193,17 @@ function Challenge:Start()
         return
     end
     
-    -- Bereinige die Teilnehmerliste - behalte nur akzeptierte Teilnehmer
+    -- Bereinige die Teilnehmerliste - behalte NUR akzeptierte und NICHT abgelehnte Teilnehmer
     local acceptedParticipants = {}
     for name, participant in pairs(self.participants) do
-        if participant.accepted then
+        if participant.accepted and not participant.declined then
             acceptedParticipants[name] = participant
         end
+    end
+
+    print("acceptedParticipants:")
+    for name, participant in pairs(acceptedParticipants) do
+        print("- " .. name)
     end
     
     -- Ersetze die alte Teilnehmerliste mit der bereinigten Liste
@@ -216,20 +217,31 @@ function Challenge:Start()
     self.startTime = time()
     self.endTime = self.startTime + self.duration
     
-    -- Starte nur Sessions für akzeptierte Teilnehmer
-    if NM.session then
-        local playerName = UnitName("player")
-        if self.participants[playerName] then -- Jetzt müssen wir nicht mehr .accepted prüfen
-            NM.session:Start()
-        end
+    -- Aktualisiere das UI
+    if NM.ChallengeTab then
+        NM.ChallengeTab:UpdateParticipants(self.participants)
     end
+    
+    -- -- Starte nur Sessions für akzeptierte Teilnehmer
+    -- if NM.session then
+    --     local playerName = UnitName("player")
+    --     if self.participants[playerName] then -- Jetzt sind nur noch wirklich aktive Teilnehmer in der Liste
+    --         NM.session:reset()
+    --     end
+    -- end
     
     -- Broadcast den Start
     self:BroadcastMessage("START", {
         startTime = self.startTime,
         endTime = self.endTime,
-        participants = self.participants -- Sende nur die bereinigte Liste
+        participants = self.participants
     })
+    
+    -- Debug print
+    print("Aktive Teilnehmer nach Start:")
+    for name, _ in pairs(self.participants) do
+        print("- " .. name)
+    end
 end
 
 function Challenge:Stop()
