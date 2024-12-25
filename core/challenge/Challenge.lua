@@ -179,54 +179,57 @@ function Challenge:Decline()
 end
 
 function Challenge:Start()
-
-    self:BroadcastMessage("START", {
-        player = UnitName("player"),
-    })
-
-    self:BroadcastMessage("CHALLENGE_START", {
-        participants = #self.participants,
-        state = self.state
-    })
-
-    if self.state ~= "inviting" then
+    if not self.state or self.state ~= "inviting" then
         return
     end
-
-    print("Start Challenge "..#self.participants)
     
-    -- Entferne alle Teilnehmer die nicht akzeptiert haben
-    local acceptedParticipants = {}
-    for name, data in pairs(self.participants) do
-        if data.accepted then
-            acceptedParticipants[name] = data
+    -- Prüfe ob es überhaupt akzeptierte Teilnehmer gibt
+    local hasAcceptedParticipants = false
+    for _, participant in pairs(self.participants) do
+        if participant.accepted then
+            hasAcceptedParticipants = true
+            break
         end
     end
     
-    -- Aktualisiere die Teilnehmerliste
-    self.participants = acceptedParticipants
-    
-    -- Wenn keine Teilnehmer übrig bleiben, Challenge abbrechen
-    if not next(self.participants) then
-        NM:Print(L["No participants accepted the challenge"])
-        self:Reset()
+    if not hasAcceptedParticipants then
+        print(L["No participants have accepted the challenge"])
         return
     end
     
-    -- Challenge starten
-    self.state = "running"
-    self.startTime = GetTime()
-    self.endTime = self.startTime + self.duration
-    
-    -- Starte Live-Updates
-    self:StartLiveUpdates()
-    
-    -- UI aktualisieren
-    if NM.ui and NM.ui.challenge then
-        NM.ui.challenge:UpdateParticipants(self.participants, self.results)
+    -- Bereinige die Teilnehmerliste - behalte nur akzeptierte Teilnehmer
+    local acceptedParticipants = {}
+    for name, participant in pairs(self.participants) do
+        if participant.accepted then
+            acceptedParticipants[name] = participant
+        end
     end
     
-    NM:Print(L["Challenge started with %d participants"], #acceptedParticipants)
+    -- Ersetze die alte Teilnehmerliste mit der bereinigten Liste
+    self.participants = acceptedParticipants
+    
+    -- Lösche ausstehende Einladungen
+    self.pendingInvites = {}
+    
+    -- Starte die Challenge
+    self.state = "running"
+    self.startTime = time()
+    self.endTime = self.startTime + self.duration
+    
+    -- Starte nur Sessions für akzeptierte Teilnehmer
+    if NM.session then
+        local playerName = UnitName("player")
+        if self.participants[playerName] then -- Jetzt müssen wir nicht mehr .accepted prüfen
+            NM.session:Start()
+        end
+    end
+    
+    -- Broadcast den Start
+    self:BroadcastMessage("START", {
+        startTime = self.startTime,
+        endTime = self.endTime,
+        participants = self.participants -- Sende nur die bereinigte Liste
+    })
 end
 
 function Challenge:Stop()
@@ -631,4 +634,15 @@ function Challenge:SendChallengeDataTo(player)
     }
     
     self:BroadcastMessage("CHALLENGE_DATA", challengeData, player)
+end
+
+-- Neue Hilfsfunktion um akzeptierte Teilnehmer zu erhalten
+function Challenge:GetAcceptedParticipants()
+    local accepted = {}
+    for name, participant in pairs(self.participants) do
+        if participant.accepted then
+            accepted[name] = true
+        end
+    end
+    return accepted
 end 

@@ -351,34 +351,49 @@ function ChallengeTab:Create()
 
     local keyBox = AceGUI:Create("EditBox")
     keyBox:SetWidth(120)
-    keyBox:SetDisabled(true)
+
+    -- Wenn eine Challenge aktiv ist, zeige den Key an
+    if NM.Challenge and NM.Challenge.key then
+        keyBox:SetText(NM.Challenge.key)
+        keyBox:SetDisabled(true)
+    else
+        keyBox:SetDisabled(false) -- Erlaubt Eingabe wenn keine Challenge aktiv
+    end
     keyGroup:AddChild(keyBox)
 
-    local copyButton = AceGUI:Create("Button")
-    copyButton:SetText(L["Copy Key"])
-    copyButton:SetWidth(100)
-    copyButton:SetCallback("OnClick", function()
-        -- Erstelle ein Popup-Fenster
-        local dialog = AceGUI:Create("Frame")
-        dialog:SetTitle(L["Copy Challenge Key"])
-        dialog:SetLayout("Flow")
-        dialog:SetWidth(300)
-        dialog:SetHeight(100)
-        
-        -- Erstelle das EditBox-Widget mit dem Key
-        local editBox = AceGUI:Create("EditBox")
-        editBox:SetFullWidth(true)
-        editBox:SetText(keyBox:GetText())
-        dialog:AddChild(editBox)
-        
-        -- Markiere den Text automatisch
-        C_Timer.After(0.1, function()
-            editBox.editbox:SetFocus()
-            editBox.editbox:HighlightText()
+    local actionButton = AceGUI:Create("Button")
+    if NM.Challenge and NM.Challenge.key then
+        -- Wenn eine Challenge aktiv ist, zeige Copy Button
+        actionButton:SetText(L["Copy Key"])
+        actionButton:SetCallback("OnClick", function()
+            local dialog = AceGUI:Create("Frame")
+            dialog:SetTitle(L["Copy Challenge Key"])
+            dialog:SetLayout("Flow")
+            dialog:SetWidth(300)
+            dialog:SetHeight(100)
+            
+            local editBox = AceGUI:Create("EditBox")
+            editBox:SetFullWidth(true)
+            editBox:SetText(keyBox:GetText())
+            dialog:AddChild(editBox)
+            
+            C_Timer.After(0.1, function()
+                editBox.editbox:SetFocus()
+                editBox.editbox:HighlightText()
+            end)
         end)
-    end)
-    copyButton:SetDisabled(true)
-    keyGroup:AddChild(copyButton)
+    else
+        -- Wenn keine Challenge aktiv ist, zeige Join Button
+        actionButton:SetText(L["Join Challenge"])
+        actionButton:SetCallback("OnClick", function()
+            local inputKey = keyBox:GetText()
+            if inputKey and inputKey:len() > 0 then
+                NM.Challenge:JoinWithKey(inputKey)
+            end
+        end)
+    end
+    actionButton:SetWidth(100)
+    keyGroup:AddChild(actionButton)
 
     scrollContainer:AddChild(keyGroup)
     
