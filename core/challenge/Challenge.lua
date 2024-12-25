@@ -330,10 +330,7 @@ end
 
 function Challenge:HandleMessage(sender, message)
     local success, data = AceSerializer:Deserialize(message)
-    if not success then 
-        return 
-    end
-    NM:Print(data.type)  -- Debug print
+    if not success then return end
     
     if data.type == "CHALLENGE_START" then
         -- Behalte die existierende Teilnehmerliste
@@ -367,24 +364,44 @@ function Challenge:HandleMessage(sender, message)
         end
         
         NM:Print(L["Challenge started!"])
-    end
-
-    if data.type == "CHALLENGE_END" then
+    elseif data.type == "CHALLENGE_END" then
+        -- Stoppe die Session zum exakt gleichen Zeitpunkt
+        if NM.session then
+            NM.session:pause()
+        end
         
+        -- Stoppe den Timer
+        if NM.ChallengeTab then
+            NM.ChallengeTab:StopTimer()
+        end
+        
+        -- Sende ein finales LIVE_UPDATE
+        if NM.session then
+            local finalData = {
+                player = UnitName("player"),
+                liv = NM.session.liv or 0,
+                items = NM.session.itemsLooted,
+                totalGold = NM.session.totalGold,
+                lootedGold = NM.session.lootedGold
+            }
+            self:BroadcastMessage("LIVE_UPDATE", finalData)
+        end
+        
+        -- Stoppe Live-Updates
+        if self.updateTimer then
+            self.updateTimer:Cancel()
+            self.updateTimer = nil
+        end
+        
+        self.state = "finished"
 
-
-        NM.session:pause()
-        NM:Print(L["Challenge ended!"])
+        -- Zeige schwebenden Text an
         self:ShowFloatingText(L["Challenge Complete!"])
-    end
-    
-    if data.type == "LIVE_UPDATE" then
-        -- Log nur die deserialisierten Daten
+    elseif data.type == "LIVE_UPDATE" then
+        -- Verarbeite LIVE_UPDATE nur wenn Challenge aktiv ist oder gerade beendet wurde
         if self.state == "running" then
             local player = data.data.player
             local liv = data.data.liv or 0
-            
-            -- Debug nur für wichtige Änderungen
             
             -- Aktualisiere direkt die Teilnehmerdaten und Ergebnisse
             if self.participants[player] then
@@ -394,7 +411,7 @@ function Challenge:HandleMessage(sender, message)
                     items = data.data.items or {},
                     totalGold = data.data.totalGold or 0,
                     lootedGold = data.data.lootedGold or 0,
-                    originalLiv = liv  -- Speichere den Original-Wert
+                    originalLiv = liv
                 }
                 
                 -- UI nur einmal aktualisieren
@@ -403,10 +420,7 @@ function Challenge:HandleMessage(sender, message)
                 end
             end
         end
-    end
-    
-    
-    if data.type == "INVITE" then
+    elseif data.type == "INVITE" then
         self.state = "pending"
         self.leader = data.data.leader
         self.participants = data.data.participants
@@ -595,27 +609,17 @@ function Challenge:StartLiveUpdates()
                 lootedGold = NM.session.lootedGold
             }
             
-            -- Aktualisiere eigene Teilnehmerdaten, aber sende sie nicht
+            -- Aktualisiere eigene Teilnehmerdaten
             if self.participants[UnitName("player")] then
                 self.participants[UnitName("player")].liv = currentData.liv
             end
             
-            -- Sende Live-Update an alle Teilnehmer, außer an sich selbst
-            for playerName, _ in pairs(self.participants) do
-                if playerName ~= UnitName("player") then
-                    self:SendLiveUpdate(playerName, currentData)
-                end
-            end
-            
-            -- Aktualisiere eigene Ergebnisse
-            self:UpdateLiveResult(UnitName("player"), currentData)
-            
+            -- Sende Live-Update
+            self:BroadcastMessage("LIVE_UPDATE", currentData)
         else
             -- Stoppe Timer wenn Challenge nicht mehr läuft
-            if self.updateTimer then
-                self.updateTimer:Cancel()
-                self.updateTimer = nil
-            end
+            self.updateTimer:Cancel()
+            self.updateTimer = nil
         end
     end)
 end
