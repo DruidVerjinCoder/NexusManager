@@ -61,7 +61,6 @@ local function clearFormData()
         editKey = editKey
     }
     
-    NM:Log("clearFormData - Preserved Edit Key: " .. tostring(editKey))
 end
 
 -- Public methods
@@ -70,22 +69,10 @@ function AddTodoFrame:Create(todoToEdit)
         self.window:Release()
     end
     
-    -- Debug output for incoming todo
-    if todoToEdit then
-        NM:Log("=== Creating Edit Form ===")
-        NM:Log("Todo to edit:")
-        for k, v in pairs(todoToEdit) do
-            NM:Log("  " .. k .. ": " .. tostring(v))
-        end
-    end
-    
     -- Reset state and set edit mode if needed
     clearFormData()
     self.state.editMode = todoToEdit ~= nil
     self.state.editKey = todoToEdit and todoToEdit.key or nil
-    
-    NM:Log("Edit Mode: " .. tostring(self.state.editMode))
-    NM:Log("Edit Key: " .. tostring(self.state.editKey))
     
     -- Pre-fill form data if editing
     if todoToEdit then
@@ -245,14 +232,8 @@ function AddTodoFrame:UpdateTargetDropdown(selectedType)
     
     self.targetDropdown:SetList(options)
     
-    -- Debug output
-    NM:Log("UpdateTargetDropdown - Type: " .. tostring(selectedType))
-    NM:Log("EditMode: " .. tostring(self.state.editMode))
-    NM:Log("Current Assignment: " .. tostring(self.state.formData.assignment))
-    
     -- If we're in edit mode and have an assignment, try to select it
     if self.state.editMode and self.state.formData.assignment then
-        NM:Log("Setting dropdown value to: " .. tostring(self.state.formData.assignment))
         self.targetDropdown:SetValue(self.state.formData.assignment)
     else
         -- Default selection for new todos
@@ -281,13 +262,8 @@ end
 
 function AddTodoFrame:SaveTodo()
     if not self.state.isValid then 
-        NM:Log("Form validation failed")
         return 
     end
-    
-    NM:Log("=== SaveTodo Debug Start ===")
-    NM:Log("Edit Mode: " .. tostring(self.state.editMode))
-    NM:Log("Edit Key: " .. tostring(self.state.editKey))
     
     self.saveButton:SetText(L["Saving..."])
     self.saveButton:SetDisabled(true)
@@ -304,15 +280,8 @@ function AddTodoFrame:SaveTodo()
             assignment = self.targetDropdown:GetValue()
         }
         
-        -- Debug output for updatedTodo
-        NM:Log("Updated Todo contents:")
-        for k, v in pairs(updatedTodo) do
-            NM:Log("  " .. k .. ": " .. tostring(v))
-        end
-        
         -- Ensure we have all required fields
         if not updatedTodo.title or not updatedTodo.type or not updatedTodo.assignment then
-            NM:Log("Missing required fields in updatedTodo")
             return false
         end
         
@@ -321,15 +290,10 @@ function AddTodoFrame:SaveTodo()
         success = NM.DB:AddTodo(self.state.formData)
     end
     
-    NM:Log("Save operation success: " .. tostring(success))
-    NM:Log("=== SaveTodo Debug End ===")
-    
     if success then
-        NM:Print(self.state.editMode and L["Updated todo"] or L["Added a new todo"])
         NM:reloadScrollFrameTable()
         self:OnClose()
     else
-        NM:Print(self.state.editMode and L["Failed to update todo"] or L["Failed to add todo"])
         self.saveButton:SetText(L["Save"])
         self.saveButton:SetDisabled(false)
     end

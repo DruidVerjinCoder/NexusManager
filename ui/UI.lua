@@ -59,9 +59,6 @@ function NM:reloadScrollFrameTable()
     for _, todo in ipairs(todos) do
         local chkBox = NM.UIFunctions:createCheckBox(todo.title, todo.complete,
             function(self) 
-                NM:Log("Checking todo: " .. todo.title)
-                NM:Log("Key: " .. (todo.key or "nil"))
-                NM:Log("Type: " .. (todo.type or "nil"))
                 NM.DB:CheckTodo(todo) -- Übergebe das gesamte todo-Objekt
             end)
         chkBox:SetWidth(250)
@@ -129,13 +126,6 @@ function NM:reloadScrollFrameTable()
             L["Edit Todo"]
         )
         edit:SetCallback("OnClick", function()
-            -- Debug output for todo being edited
-            NM:Log("=== Starting Todo Edit ===")
-            NM:Log("Todo being edited:")
-            for k, v in pairs(todo) do
-                NM:Log("  " .. k .. ": " .. tostring(v))
-            end
-            
             NM.AddTodoFrame:Create(todo)
         end)
 
@@ -397,8 +387,6 @@ local function createProfessionLabel(profession)
     label:SetCallback("OnClick", function()
         if NM.DB and NM.DB.LoadMissingProfessionTodoToCharacter then
             NM.DB:LoadMissingProfessionTodoToCharacter()
-        else
-            NM:Log("Error: DB or LoadMissingProfessionTodoToCharacter not available")
         end
         
         -- Rest of your click handler code...

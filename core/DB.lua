@@ -40,7 +40,6 @@ DB.PROFESSION_TYPES = {
 -- Database Initialization and Validation
 function DB:InitializeDB()
     if not NM.db then
-        NM:Log("Error: Database not initialized")
         return
     end
 
@@ -68,7 +67,6 @@ function DB:InitializeDB()
 end
 
 function DB:MigrateDB(oldVersion)
-    NM:Log("Migrating database from version " .. (oldVersion or "unknown"))
     -- Add migration logic here
     NM.db.global.version = SAVED_VARIABLES_SCHEMA.global.version
 end
@@ -106,13 +104,11 @@ function DB:InitializeCharacter(guid)
         }
     }
 
-    NM:Log(string.format("Initialized character: %s-%s (%s)", name, realm, class))
 end
 
 -- Todo Management with Error Handling
 function DB:AddTodo(todo)
     if not todo or not todo.type or not todo.assignment then
-        NM:Log("Error: Invalid todo data")
         return false
     end
 
@@ -123,7 +119,6 @@ function DB:AddTodo(todo)
     
     -- Generate a unique key for the todo
     todo.key = todo.type .. "_" .. time() .. "_" .. math.random(1000, 9999)
-    NM:Log("Generated new todo key: " .. todo.key)
 
     local success, err = pcall(function()
         if todo.type == "character" then
@@ -135,7 +130,6 @@ function DB:AddTodo(todo)
             end
             
             table.insert(char.todos.general, todo)
-            NM:Log("Added character todo: " .. todo.title)
         
         elseif todo.type == "profession" then
             -- Add to global profession list
@@ -147,7 +141,6 @@ function DB:AddTodo(todo)
             -- Add individual copies to all characters with this profession
             for _, char in pairs(NM.db.global.characters) do
                 if self:HasProfession(char, todo.assignment) then
-                    NM:Log("Adding profession todo to character: " .. char.name)
                     if not char.todos.professions[todo.assignment] then
                         char.todos.professions[todo.assignment] = {}
                     end
@@ -167,12 +160,10 @@ function DB:AddTodo(todo)
                 end
             end
             
-            NM:Log("Added profession todo: " .. todo.title)
         end
     end)
 
     if not success then
-        NM:Log("Error adding todo: " .. (err or "unknown error"))
         return false
     end
 
@@ -226,7 +217,6 @@ function DB:GetPersonalTodos()
    local currentChar = self:GetCurrentCharacter()
    
    if not currentChar then
-       NM:Log("Warning: Could not get current character data")
        return {}
    end
     -- Add general todos
@@ -250,7 +240,6 @@ function DB:GetPersonalTodos()
            end
        end
    end
-    NM:Log(string.format("Found %d todos for character %s", #todos, currentChar.name))
    return todos
 end
 
@@ -358,13 +347,9 @@ end
 
 function DB:UpdateTodo(key, updatedTodo)
     if not key or not updatedTodo then 
-        NM:Log("UpdateTodo: Invalid input - key or updatedTodo missing")
         return false 
     end
     
-    NM:Log("=== UpdateTodo Debug Start ===")
-    NM:Log("Key: " .. tostring(key))
-    NM:Log("Type: " .. tostring(updatedTodo.type))
     
     local success, err = pcall(function()
         local oldTodo = nil
@@ -398,12 +383,8 @@ function DB:UpdateTodo(key, updatedTodo)
         end
         
         if not oldTodo then
-            NM:Log("Could not find original todo")
             return false
         end
-        
-        NM:Log("Old type: " .. oldType)
-        NM:Log("New type: " .. updatedTodo.type)
         
         -- If type changed, we need to remove from old location and add to new
         if oldType ~= updatedTodo.type then
@@ -469,22 +450,17 @@ function DB:UpdateTodo(key, updatedTodo)
     end)
     
     if not success then
-        NM:Log("Error in UpdateTodo: " .. tostring(err))
         return false
     end
     
-    NM:Log("=== UpdateTodo Debug End ===")
     return true
 end
 
 function DB:DeleteTodo(key, todoType, assignment)
     if not key then 
-        NM:Log("DeleteTodo: No key provided")
         return false 
     end
     
-    NM:Log("=== DeleteTodo Debug Start ===")
-    NM:Log("Deleting todo - Key: " .. key .. ", Type: " .. todoType .. ", Assignment: " .. (assignment or "none"))
     
     local success, err = pcall(function()
         if todoType == "character" then
@@ -495,7 +471,6 @@ function DB:DeleteTodo(key, todoType, assignment)
             for i, todo in ipairs(char.todos.general) do
                 if todo.key == key then
                     table.remove(char.todos.general, i)
-                    NM:Log("Deleted character todo: " .. key)
                     break
                 end
             end
@@ -503,14 +478,12 @@ function DB:DeleteTodo(key, todoType, assignment)
         elseif todoType == "profession" then
             -- Get the base key without character ID
             local baseKey = key:gsub("_Player%-[^_]+$", "")
-            NM:Log("Base key for deletion: " .. baseKey)
             
             -- Remove from global profession list
             if NM.db.global.profession[assignment] then
                 for i, todo in ipairs(NM.db.global.profession[assignment]) do
                     if todo.key == baseKey then
                         table.remove(NM.db.global.profession[assignment], i)
-                        NM:Log("Removed from global profession list")
                         break
                     end
                 end
@@ -525,7 +498,6 @@ function DB:DeleteTodo(key, todoType, assignment)
                         -- Check if this todo matches our base key
                         if todo.key:find(baseKey) then
                             table.remove(charTodos, i)
-                            NM:Log("Removed todo from character: " .. char.name)
                         end
                     end
                 end
@@ -536,7 +508,6 @@ function DB:DeleteTodo(key, todoType, assignment)
                 if char.todos and char.todos.professions and char.todos.professions[assignment] then
                     if #char.todos.professions[assignment] == 0 then
                         char.todos.professions[assignment] = nil
-                        NM:Log("Cleaned up empty profession list for character: " .. char.name)
                     end
                 end
             end
@@ -544,18 +515,14 @@ function DB:DeleteTodo(key, todoType, assignment)
             -- Clean up global profession list if empty
             if NM.db.global.profession[assignment] and #NM.db.global.profession[assignment] == 0 then
                 NM.db.global.profession[assignment] = nil
-                NM:Log("Cleaned up empty global profession list")
             end
         end
     end)
     
     if not success then
-        NM:Log("Error deleting todo: " .. (err or "unknown error"))
-        NM:Log("=== DeleteTodo Debug End (Error) ===")
         return false
     end
     
-    NM:Log("=== DeleteTodo Debug End (Success) ===")
     return true
 end
 
@@ -563,8 +530,6 @@ end
 function DB:SyncProfessionTodos(charData, profession, isLearning)
     profession = self:NormalizeProfessionName(profession)
     if not charData or not profession then return end
-    
-    NM:Log("Syncing profession todos for " .. charData.name .. " - " .. profession .. " (Learning: " .. tostring(isLearning) .. ")")
     
     if isLearning then
         -- Character learned a profession - add todos
@@ -598,12 +563,9 @@ end
 
 -- In your event handling setup
 function NM:OnProfessionUpdate(event, ...)
-    NM:Log("=== Profession Update Event Start ===")
-    NM:Log("Event: " .. event)
     
     local char = self.DB:GetCurrentCharacter()
     if not char then 
-        NM:Log("No character found")
         return 
     end
     
@@ -615,14 +577,12 @@ function NM:OnProfessionUpdate(event, ...)
         local name = self.DB:NormalizeProfessionName(GetProfessionInfo(prof1))
         if name then 
             currentProfessions[name] = true
-            NM:Log("Found profession 1: " .. name)
         end
     end
     if prof2 then
         local name = self.DB:NormalizeProfessionName(GetProfessionInfo(prof2))
         if name then 
             currentProfessions[name] = true
-            NM:Log("Found profession 2: " .. name)
         end
     end
     
@@ -636,7 +596,6 @@ function NM:OnProfessionUpdate(event, ...)
     -- Remove unlearned professions
     for profession, _ in pairs(char.todos.professions) do
         if not currentProfessions[profession] then
-            NM:Log("Removing unlearned profession: " .. profession)
             char.todos.professions[profession] = nil
             professionsChanged = true
         end
@@ -645,7 +604,6 @@ function NM:OnProfessionUpdate(event, ...)
     -- Add new professions and sync todos
     for profession, _ in pairs(currentProfessions) do
         if not char.todos.professions[profession] then
-            NM:Log("Adding new profession: " .. profession)
             char.todos.professions[profession] = {}
             self.DB:SyncProfessionTodos(char, profession, true)
             professionsChanged = true
@@ -654,7 +612,6 @@ function NM:OnProfessionUpdate(event, ...)
     
     -- Force UI update if professions changed
     if professionsChanged then
-        NM:Log("Professions changed - Updating UI")
         C_Timer.After(0.1, function()
             self:reloadScrollFrameTable()
             -- Double-check update after a short delay
@@ -664,17 +621,11 @@ function NM:OnProfessionUpdate(event, ...)
         end)
     end
     
-    NM:Log("=== Profession Update Event End ===")
 end
 
 -- Helper function to sync profession todos
 function DB:SyncProfessionTodos(char, profession, isLearning)
     if not char or not profession then return end
-    
-    NM:Log("=== Syncing Profession Todos ===")
-    NM:Log("Character: " .. char.name)
-    NM:Log("Profession: " .. profession)
-    NM:Log("Is Learning: " .. tostring(isLearning))
     
     if isLearning then
         -- Ensure profession structure exists
@@ -713,23 +664,18 @@ function DB:SyncProfessionTodos(char, profession, isLearning)
                     added = added + 1
                 end
             end
-            NM:Log("Added " .. added .. " todos for " .. profession)
         end
     end
-    
-    NM:Log("=== Sync Complete ===")
 end
 
 -- Helper function to clean up profession todos
 function DB:CleanupProfessionTodos(char, profession)
     if not char or not profession then return end
     
-    NM:Log("Cleaning up todos for profession: " .. profession)
     
     -- Remove profession todos for this character
     if char.todos and char.todos.professions then
         char.todos.professions[profession] = nil
-        NM:Log("Removed profession todos for: " .. profession)
     end
 end
 
@@ -795,8 +741,6 @@ function DB:LoadMissingProfessionTodoToCharacter()
     local char = self:GetCurrentCharacter()
     if not char then return end
     
-    NM:Log("=== Loading Missing Profession Todos ===")
-    
     -- Initialize profession todos if needed
     if not char.todos then char.todos = {} end
     if not char.todos.professions then char.todos.professions = {} end
@@ -816,7 +760,6 @@ function DB:LoadMissingProfessionTodoToCharacter()
     
     -- For each current profession
     for profession in pairs(currentProfessions) do
-        NM:Log("Checking profession: " .. profession)
         
         -- Initialize profession table if needed
         if not char.todos.professions[profession] then
@@ -839,7 +782,6 @@ function DB:LoadMissingProfessionTodoToCharacter()
                 
                 -- Create local copy if needed
                 if not hasLocalCopy then
-                    NM:Log("Adding new todo for " .. profession .. ": " .. globalTodo.title)
                     local todoCopy = {
                         key = localKey,
                         title = globalTodo.title,
@@ -859,12 +801,10 @@ function DB:LoadMissingProfessionTodoToCharacter()
     -- Clean up todos for professions we no longer have
     for profession in pairs(char.todos.professions) do
         if not currentProfessions[profession] then
-            NM:Log("Removing todos for unlearned profession: " .. profession)
             char.todos.professions[profession] = nil
         end
     end
     
-    NM:Log("=== Profession Todos Loading Complete ===")
 end
 
 NM.LoadMissingProfessionTodoToCharacter = function()
@@ -872,22 +812,53 @@ NM.LoadMissingProfessionTodoToCharacter = function()
 end
 
 -- Helper function to check if an item matches the enabled options
-function DB:ShouldTrackItem(itemID)
-    print("Should Track Item")
+function DB:ShouldTrackItem(itemID, strict)
     if not itemID then 
-        NM:Log("ShouldTrackItem: No itemID provided")
         return false 
     end
     
-    local itemName, _, itemRarity, _, _, itemType, itemSubType = C_Item.GetItemInfo(itemID)
-    if not itemName then 
-        NM:Log("ShouldTrackItem: Could not get item info for ID " .. itemID)
+    -- Get item info
+    local _, _, itemRarity, _, _, _, _, _, _, _, _, classID, subclassID = C_Item.GetItemInfo(itemID)
+    if not itemRarity then 
         return false 
     end
     
-    NM:Log("Checking item: " .. itemName .. " (Rarity: " .. itemRarity .. ")")
+    -- Get profile settings
+    local profile = NM.db.profile
+    if not profile or not profile.general then 
+        return false 
+    end
+
+    -- Waffen oder Rüstung
+    if classID == Enum.ItemClass.Weapon or classID == Enum.ItemClass.Armor then
+        -- Korrigierte Qualitätszuordnung
+        if profile.general["poor"] and itemRarity == 0 then
+            return true
+        elseif profile.general["common"] and itemRarity == 1 then
+            return true
+        elseif profile.general["uncommon"] and itemRarity == 2 then
+            return true
+        elseif profile.general["rare"] and itemRarity == 3 then
+            return true
+        elseif profile.general["epic"] and itemRarity == 4 then
+            return true
+        elseif profile.general["legendary"] and itemRarity == 5 then
+            return true
+        end
+        
+        return false
+    end
     
-    -- Check general options (item rarity)
+    -- Rest der Funktion für andere Item-Typen...
+    if strict then
+        return false
+    end
+    
+    return true
+end
+
+-- Helper functions to get category keys
+function DB:GetRarityKey(itemRarity)
     local rarityMap = {
         [0] = "poor",
         [1] = "common",
@@ -896,172 +867,7 @@ function DB:ShouldTrackItem(itemID)
         [4] = "epic",
         [5] = "legendary"
     }
-    
-    local rarityOption = rarityMap[itemRarity]
-    if rarityOption then
-        NM:Log("Checking rarity option: " .. rarityOption .. " = " .. tostring(NM.db.profile.general[rarityOption]))
-        if NM.db.profile.general[rarityOption] then
-            NM:Log("Item should be tracked due to rarity setting")
-            return true
-        end
-    end
-    
-    -- Check trade goods
-    if itemType == ITEM_QUALITY_COLORS[1] then -- "Trade Goods"
-        local tradeMap = {
-            [L["Cloth"]] = "cloth",
-            [L["Leather"]] = "leather",
-            [L["Metal & Stone"]] = "metalStone",
-            [L["Cooking"]] = "cooking",
-            [L["Herb"]] = "herb",
-            [L["Enchanting"]] = "enchanting",
-            [L["Inscription"]] = "inscription",
-            [L["Jewelcrafting"]] = "jewelcrafting",
-            [L["Parts"]] = "parts",
-            [L["Elemental"]] = "elemental",
-        }
-        
-        if tradeMap[itemSubType] and NM.db.profile.tradeskill[tradeMap[itemSubType]] then
-            return true
-        end
-    end
-    
-    -- Check miscellaneous items
-    if itemType == ITEM_QUALITY_COLORS[0] then -- "Miscellaneous"
-        local miscMap = {
-            [L["Junk"]] = "junk",
-            [L["Reagent"]] = "reagent",
-            [L["CompanionPet"]] = "companionPet",
-            [L["Holiday"]] = "holiday",
-            [L["Mount"]] = "mount",
-            [L["MountEquipment"]] = "mountEquipment",
-        }
-        
-        if miscMap[itemSubType] and NM.db.profile.miscellaneous[miscMap[itemSubType]] then
-            return true
-        end
-    end
-    
-    -- Check recipes
-    if itemType == L["Recipe"] then
-        local recipeMap = {
-            [L["Leatherworking"]] = "Leatherworking",
-            [L["Tailoring"]] = "Tailoring",
-            [L["Engineering"]] = "Engineering",
-            [L["Blacksmithing"]] = "Blacksmithing",
-            [L["Cooking"]] = "Cooking",
-            [L["Alchemy"]] = "Alchemy",
-            [L["Firstaid"]] = "Firstaid",
-            [L["Enchanting"]] = "Enchanting",
-            [L["Fishing"]] = "Fishing",
-            [L["Jewelcrafting"]] = "Jewelcrafting",
-            [L["Inscription"]] = "Inscription",
-        }
-        
-        if recipeMap[itemSubType] and NM.db.profile.recipe[recipeMap[itemSubType]] then
-            return true
-        end
-    end
-    
-    return false
+    return rarityMap[itemRarity]
 end
 
-function DB:CheckTodo(todo)
-    if not todo then 
-        NM:Log("CheckTodo: No todo provided")
-        return false 
-    end
-    
-    -- Get current character
-    local char = self:GetCurrentCharacter()
-    if not char then 
-        NM:Log("CheckTodo: No character found")
-        return false 
-    end
-    
-    NM:Log("=== CheckTodo Debug ===")
-    NM:Log("Todo Key: " .. (todo.key or "nil"))
-    NM:Log("Todo Type: " .. (todo.type or "nil"))
-    if todo.type == "profession" then
-        NM:Log("Profession: " .. (todo.assignment or "nil"))
-    end
-    
-    -- Initialize todos structure if needed
-    if not char.todos then 
-        NM:Log("Initializing todos structure")
-        char.todos = {} 
-    end
-    
-    -- Check and update todo status
-    local isComplete = false
-    if todo.type == "profession" then
-        if not char.todos.professions then char.todos.professions = {} end
-        if not char.todos.professions[todo.assignment] then char.todos.professions[todo.assignment] = {} end
-        
-        -- Find existing todo
-        local found = false
-        for _, profTodo in ipairs(char.todos.professions[todo.assignment]) do
-            if profTodo.key == todo.key then
-                found = true
-                isComplete = not profTodo.complete  -- Toggle status
-                profTodo.complete = isComplete
-                profTodo.completedAt = isComplete and time() or nil
-                NM:Log("Found existing todo - New status: " .. tostring(isComplete))
-                break
-            end
-        end
-        
-        -- If not found, create new todo
-        if not found then
-            NM:Log("Creating new profession todo")
-            local newTodo = {
-                key = todo.key,
-                title = todo.title,
-                description = todo.description,
-                frequency = todo.frequency,
-                type = "profession",
-                assignment = todo.assignment,
-                complete = true,
-                completedAt = time()
-            }
-            table.insert(char.todos.professions[todo.assignment], newTodo)
-            isComplete = true
-        end
-        
-    elseif todo.type == "instance" then
-        if not char.todos.instances then char.todos.instances = {} end
-        
-        -- Similar logic for instance todos
-        local found = false
-        for _, instTodo in ipairs(char.todos.instances) do
-            if instTodo.key == todo.key then
-                found = true
-                isComplete = not instTodo.complete  -- Toggle status
-                instTodo.complete = isComplete
-                instTodo.completedAt = isComplete and time() or nil
-                NM:Log("Found existing instance todo - New status: " .. tostring(isComplete))
-                break
-            end
-        end
-        
-        if not found then
-            NM:Log("Creating new instance todo")
-            local newTodo = {
-                key = todo.key,
-                title = todo.title,
-                description = todo.description,
-                frequency = todo.frequency,
-                type = "instance",
-                complete = true,
-                completedAt = time()
-            }
-            table.insert(char.todos.instances, newTodo)
-            isComplete = true
-        end
-    end
-    
-    NM:Log("Final status: " .. tostring(isComplete))
-    NM:Log("=== CheckTodo End ===")
-    
-    return isComplete
-end
+-- Weitere Helper-Funktionen für die verschiedenen Kategorien...

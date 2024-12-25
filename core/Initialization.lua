@@ -118,7 +118,6 @@ function NM:OnInitialize()
     end)
     self:RegisterEvent("CHAT_MSG_MONEY", function(event, msg)
         if NM.session then
-            print("=== Inside === ")
             NM.session:moneyLooted(event, msg)
         end
     end)

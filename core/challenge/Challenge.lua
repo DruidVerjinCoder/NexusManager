@@ -22,11 +22,9 @@ end
 
 function Challenge:SendInvites()
     if self.state then 
-        NM:Debug("Challenge: Cannot send invites - already in progress")
         return 
     end
     
-    NM:Debug("Challenge: Starting to send invites")
     
     self.state = "inviting"
     self.leader = UnitName("player")
@@ -41,8 +39,6 @@ function Challenge:SendInvites()
         isHost = true,
         liv = NM.session and NM.session.liv or 0
     }
-    
-    NM:Debug("Added host: " .. self.leader)
     
     local invitedCount = 0
     for i = 1, BNGetNumFriends() do
@@ -60,8 +56,6 @@ function Challenge:SendInvites()
                 online = true
             }
             
-            NM:Debug("Added participant: " .. playerName)
-            
             self:BroadcastMessage("INVITE", {
                 leader = self.leader,
                 participants = self.participants
@@ -70,8 +64,6 @@ function Challenge:SendInvites()
             invitedCount = invitedCount + 1
         end
     end
-    
-    NM:Debug("Total participants after invites: " .. NM.Utils.tableToString(self.participants))
     
     if invitedCount > 0 then
         NM:Print(string.format(L["Challenge invitations sent to %d players"], invitedCount))
@@ -88,7 +80,6 @@ function Challenge:SendInvites()
 end
 
 function Challenge:Reset()
-    NM:Debug("Challenge: Resetting challenge state")
     self.state = nil
     self.participants = {}
     self.pendingInvites = {}
@@ -168,7 +159,6 @@ function Challenge:Start()
     })
 
     if self.state ~= "inviting" then
-        NM:Debug("Challenge: Cannot start - not in inviting state")
         return
     end
 
@@ -239,17 +229,9 @@ function Challenge:AddResult(player, results)
         NM.ui.challenge:UpdateResults(self.results)
     end
     
-    -- Debug Ausgabe
-    NM:Debug("Challenge: Added results for %s - LIV: %d", 
-        player, self.results[player].liv)
 end
 
 function Challenge:BroadcastMessage(type, data, specificID)
-    NM:Debug("Challenge: [BROADCAST] Type: %s, Target: %s", 
-        type, 
-        specificID and "Specific Player" or "All Participants"
-    )
-    
     local message = {
         type = type,
         data = data,
@@ -267,10 +249,6 @@ function Challenge:BroadcastMessage(type, data, specificID)
             local presenceID = accountInfo.gameAccountInfo.gameAccountID
             if presenceID then
                 BNSendGameData(presenceID, "NM_CHALLENGE", serialized)
-                NM:Debug("Challenge: [SENT] Message to %s (ID: %s)", 
-                    accountInfo.gameAccountInfo.characterName,
-                    tostring(presenceID)
-                )
             end
         end
         return
@@ -301,12 +279,9 @@ end
 function Challenge:HandleMessage(sender, message)
     local success, data = AceSerializer:Deserialize(message)
     if not success then 
-        NM:Debug("Challenge: Failed to deserialize message")
         return 
     end
 
-    NM:Debug("Challenge: Received message from " .. sender .. " with type " .. data.type)
-    
     if data.type == "LIVE_UPDATE" then
         -- Log nur die deserialisierten Daten
         if self.state == "running" then
@@ -314,7 +289,6 @@ function Challenge:HandleMessage(sender, message)
             local liv = data.data.liv or 0
             
             -- Debug nur für wichtige Änderungen
-            NM:Debug("Challenge: Received LIVE_UPDATE from %s with LIV: %s", player, tostring(liv))
             
             -- Aktualisiere direkt die Teilnehmerdaten und Ergebnisse
             if self.participants[player] then

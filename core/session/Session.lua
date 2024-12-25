@@ -96,7 +96,6 @@ function session:itemLooted(event, message)
    
    self:addItem(itemID, quantity)
    self.itemsLooted[itemID] = (self.itemsLooted[itemID] or 0) + quantity
-   NM:Debug("Session: Looted %s x%d, triggering update", itemLink, quantity)
    
    -- Trigger Challenge Update when items are looted
    self:SendChallengeUpdate()
@@ -237,13 +236,11 @@ function session:moneyLooted(event, msg)
    
    if copper > 0 then
       self.lootedGold = self.lootedGold + copper
-      NM:Debug("Money looted: %d copper", copper)
    end
 end
 
 function session:moneyChanged()
    if self.state ~= "running" then 
-      NM:Debug("Session: Money changed ignored - Session not running")
       return 
    end
    
@@ -252,7 +249,6 @@ function session:moneyChanged()
    
    if moneyDiff > 0 then
       self.totalGold = self.totalGold + moneyDiff
-      NM:Debug("Session: Money increased by %d copper, triggering update", moneyDiff)
       -- Challenge Update
       self:SendChallengeUpdate()
    end
@@ -263,17 +259,14 @@ end
 -- Neue Funktion für Challenge Updates
 function session:SendChallengeUpdate()
    if not self.state == "running" then
-      NM:Debug("Session: Not sending update - Session not running (State: %s)", tostring(self.state))
       return
    end
    
    if not NM.Challenge then
-      NM:Debug("Session: Not sending update - Challenge module not available")
       return
    end
    
    if not NM.Challenge.state == "running" then
-      NM:Debug("Session: Not sending update - Challenge not running (State: %s)", tostring(NM.Challenge.state))
       return
    end
 
@@ -285,18 +278,8 @@ function session:SendChallengeUpdate()
       lootedGold = self.lootedGold
    }
    
-   NM:Debug("Session: Preparing Challenge update - Player: %s, LIV: %s, Items: %d", 
-      currentData.player,
-      tostring(currentData.liv),
-      currentData.items and #currentData.items or 0
-   )
-   
-   -- Sende Update an alle Teilnehmer
    if NM.Challenge.BroadcastMessage then
       NM.Challenge:BroadcastMessage("LIVE_UPDATE", currentData)
-      NM:Debug("Session: Sent LIVE_UPDATE to Challenge")
-   else
-      NM:Debug("Session: Failed to send update - BroadcastMessage not available")
    end
 end
 

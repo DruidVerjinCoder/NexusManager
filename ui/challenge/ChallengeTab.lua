@@ -296,7 +296,6 @@ function ChallengeTab:ShowParticipantDetails(playerName, data)
     -- - Gelootetes Gold
     -- - LIV Entwicklung
     -- - etc.
-    NM:Debug("Showing details for participant: %s", playerName)
 end
 
 function ChallengeTab:UpdateUIState(state, isHost)

@@ -30,7 +30,6 @@ local PostRunTab = {
 local function createFarmNameInput()
     return NM.UIFunctions:createEditBox(L["Farm-Name"], 0, function(widget, event, text)
         NM.session.farmName = text
-        NM:Log("Farm-Name set to " .. text)
     end)
 end
 
@@ -77,7 +76,6 @@ function PostRunTab:Create()
     self:CreateSessionControls(sessionActions)
     NM.ui.postrun:AddChild(sessionActions)
     
-    NM:Log("PostRun Tab initialized")
 end
 
 function PostRunTab:CreateSessionControls(container)
@@ -182,23 +180,23 @@ function PostRunTab:UpdateOutput(text)
     
     local annotations = {}
     local outputText = text or ""
-    local itemTexts = {}  -- Neue Liste für Item-Texte
+    local itemTexts = {}
     
     -- Check if we have looted items in the session
     if NM.session and NM.session.itemsLooted then
         -- Process each looted item
         for itemID, count in pairs(NM.session.itemsLooted) do
-            if NM.DB:ShouldTrackItem(itemID) then
+            -- Prüfe ob das Item getrackt werden soll basierend auf den Optionen
+            if NM.DB:ShouldTrackItem(itemID, true) then
                 local itemName, _, itemRarity = C_Item.GetItemInfo(itemID)
                 if itemName then
-                    local _, _, _, hexColor =  C_Item.GetItemQualityColor(itemRarity)
-                    -- Füge formatierte Items zur Liste hinzu
+                    local _, _, _, hexColor = C_Item.GetItemQualityColor(itemRarity)
                     table.insert(itemTexts, string.format("%dx %s%s|r", count, hexColor, itemName))
                 end
             end
         end
         
-        -- Füge Items mit Komma getrennt hinzu, wenn welche vorhanden sind
+        -- Füge Items nur hinzu wenn welche getrackt wurden
         if #itemTexts > 0 then
             table.insert(annotations, "\n\nTracked Items:")
             table.insert(annotations, table.concat(itemTexts, ", "))
