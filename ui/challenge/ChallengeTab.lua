@@ -174,19 +174,17 @@ function ChallengeTab:Create()
             livLabel:SetText(NM.UIFunctions:FormatGold(participant.liv))
             livLabel:SetWidth(100)
             playerRow:AddChild(livLabel)
-
-            if NM.Challenge.state == "running" then
-                local detailIcon = AceGUI:Create("Icon")
-                detailIcon:SetWidth(16)
-                detailIcon:SetHeight(16)
-                detailIcon:SetImageSize(16, 16)
-                detailIcon:SetImage("Interface\\Buttons\\UI-GuildButton-PublicNote-Up") -- Ein "i" Icon für Details
-                detailIcon:SetCallback("OnClick", function()
-                    print("Show details for ", participant.name)
-                    NM.ChallengeTab:ShowItemDetails(participant.name)
-                end)
-                playerRow:AddChild(detailIcon)
-            end
+            
+            -- Details Icon (immer anzeigen)
+            local detailIcon = AceGUI:Create("Icon")
+            detailIcon:SetWidth(16)
+            detailIcon:SetHeight(16)
+            detailIcon:SetImageSize(16, 16)
+            detailIcon:SetImage("Interface\\Buttons\\UI-GuildButton-PublicNote-Up")
+            detailIcon:SetCallback("OnClick", function()
+                NM.ChallengeTab:ShowItemDetails(participant.name)
+            end)
+            playerRow:AddChild(detailIcon)
             
             participantsScroll:AddChild(playerRow)
         end
@@ -194,7 +192,6 @@ function ChallengeTab:Create()
         if participants == nil then
             NM.Challenge:BroadcastMessage("UPDATE_PARTICIPANTS", participants)
         end
-
     end
     
     -- Neue UpdateResults Funktion
@@ -229,7 +226,7 @@ function ChallengeTab:Create()
             
             -- Start Button ist aktiv für Leader/Host
             if isHost then
-                startButton:SetDisabled(false)  -- Immer aktiviert für den Host
+                startButton:SetDisabled(false)  -- Aktiviert für den Host während "inviting"
             else
                 startButton:SetDisabled(true)
             end
@@ -239,9 +236,11 @@ function ChallengeTab:Create()
                 scrollContainer:AddChild(participantsContainer)
             end
             participantsContainer.frame:Show()
+            
+            -- Alle Buttons deaktivieren im "running" Status
             durationDropdown:SetDisabled(true)
             inviteButton:SetDisabled(true)
-            startButton:SetDisabled(true)
+            startButton:SetDisabled(true)  -- Start Button immer deaktiviert während des Laufs
             
         else
             -- Kein aktiver Challenge-Status
