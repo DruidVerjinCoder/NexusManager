@@ -1003,32 +1003,33 @@ end
 
 -- Weitere Helper-Funktionen für die verschiedenen Kategorien...
 
-function DB:UpdateOutput(text)
-    if not self.itemsLooted then return text or "" end
-    
-    local outputText = text or ""
+function DB:UpdateOutput()
+    if not NM.session or not NM.session.itemsLooted then 
+        return "" 
+    end
+    -- NM:Log("Generating output. Session items count: " .. (#NM.session.items))
     local trackedItems = {}
     
     -- Sammle alle getrackte Items
-    for itemID, count in pairs(self.itemsLooted) do
-        if NM.DB:ShouldTrackItem(itemID) then
-            local itemName, _, itemRarity = C_Item.GetItemInfo(itemID)
-            NM:Log("Item is tracked" .. itemName)
+    for itemID, itemData in pairs(NM.session.items) do
+        local itemName, _, itemRarity = C_Item.GetItemInfo(itemID)
+        if self:ShouldTrackItem(itemID) then
             if itemName then
                 local _, _, _, hexColor = C_Item.GetItemQualityColor(itemRarity)
-                local itemText = string.format("%dx %s%s|r", count, hexColor, itemName)
+                local itemText = string.format("%dx %s%s|r", itemData.quantity, hexColor, itemName)
                 table.insert(trackedItems, itemText)
             end
+        else 
+            -- NM:Log("Item is not tracked" .. itemName)
         end
     end
     
     -- Füge Items zum Output hinzu
     if #trackedItems > 0 then
-        if outputText ~= "" then
-            outputText = outputText .. "\n"
-        end
-        outputText = outputText .. table.concat(trackedItems, ", ")
+        local output = table.concat(trackedItems, ", ")
+        -- NM:Log("Output: " .. output)
+        return output
     end
     
-    return outputText
+    return ""
 end
