@@ -624,10 +624,16 @@ end
 
 function Challenge:JoinWithKey(inputKey)
     NM:Print("JoinWithKey started with key " .. inputKey)
-    -- Sende Join-Request an alle Freunde
+    
+    -- Hole eigene Account Info
+    local accountInfo = C_BattleNet.GetAccountInfoByGUID(UnitGUID("player"))
+    local gameAccountID = accountInfo and accountInfo.gameAccountInfo and accountInfo.gameAccountInfo.gameAccountID
+    
+    -- Sende Join-Request mit Account Info
     local message = {
-            ckey = inputKey,
-            player = UnitName("player")
+        ckey = inputKey,
+        player = UnitName("player"),
+        accountID = gameAccountID  -- Füge Game Account ID hinzu
     }
     
     self:BroadcastMessage("JOIN_REQUEST", message)
@@ -645,7 +651,7 @@ function Challenge:SendChallengeDataTo(player)
         results = self.results
     }
     NM:Print("Sende Challenge-Daten an " .. player)
-    self:BroadcastMessage("CHALLENGE_DATA", challengeData, player)
+    self:BroadcastMessage("CHALLENGE_DATA", challengeData)
 end
 
 -- Neue Hilfsfunktion um akzeptierte Teilnehmer zu erhalten
