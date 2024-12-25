@@ -103,3 +103,8 @@ L["Copy Key"] = "Key kopieren"
 L["Challenge Key"] = "Challenge Key"
 
 L["Duration (minutes)"] = "Dauer (Minuten)"
+
+L["Key copied to clipboard"] = "Key in die Zwischenablage kopiert"
+
+L["Copy Challenge Key"] = "Challenge Key kopieren"
+L["Close"] = "Schließen"
