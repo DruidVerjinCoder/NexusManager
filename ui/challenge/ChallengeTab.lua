@@ -41,32 +41,46 @@ function ChallengeTab:Create()
     durationInput:SetText("30") -- Standard: 30 Minuten
     durationInput:SetMaxLetters(4) -- Maximal 4 Ziffern (9999 Minuten)
 
-    -- Nur Zahlen erlauben
-    durationInput:SetCallback("OnTextChanged", function(self)
-        -- Hole den aktuellen Text
-        local value = self:GetText()
-        
-        -- Entferne alle nicht-numerischen Zeichen
-        local numericValue = value:gsub("%D", "")
-        
-        -- Wenn der Wert sich geändert hat, update das Feld
-        if numericValue ~= value then
-            self:SetText(numericValue)
+    -- Reset Button neben Duration Input
+    local resetButton = AceGUI:Create("Button")
+    resetButton:SetText(L["Reset"])
+    resetButton:SetWidth(80)
+    resetButton:SetCallback("OnClick", function()
+        -- Prüfe ob eine Challenge mit Teilnehmern existiert
+        if NM.Challenge and NM.Challenge.participants and next(NM.Challenge.participants) then
+            -- Sende Cancel-Nachricht an alle Teilnehmer
+            NM.Challenge:BroadcastMessage("CANCEL_CHALLENGE", {
+                message = L["Host has cancelled the challenge"]
+            })
         end
         
-        -- Konvertiere zu Nummer und stelle sicher, dass sie im gültigen Bereich ist
-        local minutes = tonumber(numericValue) or 0
-        if minutes < 1 then minutes = 1 end
-        if minutes > 9999 then minutes = 9999 end
-        
-        -- Speichere den Wert für die Challenge
+        -- Führe lokalen Reset durch
         if NM.Challenge then
-            NM.Challenge.duration = minutes * 60 -- Konvertiere zu Sekunden
+            NM.Challenge:Reset()
+        end
+        
+        -- UI zurücksetzen
+        durationInput:SetDisabled(false)
+        durationInput:SetText("30")
+        
+        -- Verstecke nur die Teilnehmerliste
+        if participantsContainer then
+            participantsContainer.frame:Hide()
+        end
+        
+        -- Deaktiviere Start Button
+        if startButton then
+            startButton:SetDisabled(true)
         end
     end)
 
-    -- Füge das Input Feld zum Container hinzu
-    scrollContainer:AddChild(durationInput)
+    -- Füge Duration Input und Reset Button nebeneinander hinzu
+    local inputGroup = AceGUI:Create("SimpleGroup")
+    inputGroup:SetLayout("Flow")
+    inputGroup:SetFullWidth(true)
+    inputGroup:AddChild(durationInput)
+    inputGroup:AddChild(resetButton)
+    scrollContainer:AddChild(inputGroup)
     
     -- Deaktiviere das Input wenn die Challenge läuft
     if NM.Challenge and NM.Challenge.state == "running" then

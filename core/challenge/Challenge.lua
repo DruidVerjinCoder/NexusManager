@@ -397,6 +397,12 @@ function Challenge:HandleMessage(sender, message)
 
         -- Zeige schwebenden Text an
         self:ShowFloatingText(L["Challenge Complete!"])
+
+    elseif data.type == "CANCEL_CHALLENGE" then
+            if data.message then
+                NM:Print(data.message)
+            end
+            self:Reset()
     elseif data.type == "LIVE_UPDATE" then
         -- Verarbeite LIVE_UPDATE nur wenn Challenge aktiv ist oder gerade beendet wurde
         if self.state == "running" then
