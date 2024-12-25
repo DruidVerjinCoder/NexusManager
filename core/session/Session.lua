@@ -221,11 +221,11 @@ function session:zoneSwitched()
    if IsInInstance() then
       local name, type, difficulty = GetInstanceInfo()
       
-      -- Wenn wir bereits in einer Instanz waren
+      -- Wenn wir bereits eine Instanz-Historie haben
       if self.instance then
          -- Wenn es die gleiche Instanz ist
          if self.instance.name == name then
-            -- Erhöhe für alle Instanztypen den Counter
+            -- Erhöhe den Counter
             self.instanceRuns = (self.instanceRuns or 1) + 1
          else
             -- Neue Instanz
@@ -248,7 +248,10 @@ function session:zoneSwitched()
       end
    else
       -- Außerhalb der Instanz
-      self.instance = nil
+      -- Behalte die Instanz-Informationen, setze nur type auf "outside"
+      if self.instance then
+         self.instance.type = "outside"
+      end
    end
 end
 
