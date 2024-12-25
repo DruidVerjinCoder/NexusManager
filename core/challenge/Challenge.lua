@@ -334,14 +334,18 @@ function Challenge:HandleMessage(sender, message)
     if not success then return end
     
     if data.type == "CANCEL_CHALLENGE" then
-        NM:Print("CANCEL ||Challenge key: " .. self.key)
         -- Prüfe ob der Key übereinstimmt
         if data.data.key and data.data.key == self.key then
-            NM:Print("Challenge canceled by " .. sender)
             if data.data.message then
-                self:ShowFloatingText(data.data.message)
+                NM:Print(data.data.message)
             end
             self:Reset()
+            -- UI auf initialen Status zurücksetzen
+            if NM.ui and NM.ui.challenge then
+                NM.ui.challenge:UpdateUIState("initial", false)
+            end
+
+            self:ShowFloatingText(data.data.message)
         end
         return
     end
