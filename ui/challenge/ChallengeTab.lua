@@ -60,31 +60,8 @@ function ChallengeTab:Create()
             NM.Challenge:Reset()
         end
         
-        -- UI zurücksetzen
-        durationInput:SetDisabled(false)
-        durationInput:SetText("30")
-        
-        -- Verstecke Teilnehmerliste
-        if participantsContainer then
-            participantsContainer.frame:Hide()
-        end
-        
-        -- Buttons zurücksetzen
-        if startButton then
-            startButton:SetDisabled(true)
-        end
-        if inviteButton then
-            inviteButton:SetDisabled(false)
-        end
-        
-        -- Key-Anzeige leeren
-        if keyBox then
-            keyBox:SetText("")
-        end
-
-        -- UI Status zurücksetzen
-        container:UpdateUIState("inviting", false)
-        
+        -- UI auf initialen Status zurücksetzen
+        container:UpdateUIState("initial", false)
     end)
 
     -- Füge Duration Input und Reset Button nebeneinander hinzu
@@ -350,9 +327,32 @@ function ChallengeTab:Create()
     end
     
     -- UI State Updates
-    function container:UpdateUIState(state, isLeader)
+    function container:UpdateUIState(state, isHost)
         -- Zeige/Verstecke UI Elemente basierend auf dem Status
-        if state == "inviting" then
+        if state == "initial" then
+            -- Verstecke Teilnehmerliste
+            if participantsContainer then
+                participantsContainer.frame:Hide()
+            end
+            
+            -- Reset UI Elements
+            durationInput:SetDisabled(false)
+            durationInput:SetText("30")
+            
+            -- Reset Buttons
+            if startButton then
+                startButton:SetDisabled(true)
+            end
+            if inviteButton then
+                inviteButton:SetDisabled(false)
+            end
+            
+            -- Reset Key
+            if keyBox then
+                keyBox:SetText("")
+            end
+            
+        elseif state == "inviting" then
             if not participantsContainer.parent then
                 scrollContainer:AddChild(participantsContainer)
             end
