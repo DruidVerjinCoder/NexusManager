@@ -101,3 +101,5 @@ L["Successfully joined challenge"] = "Challenge erfolgreich beigetreten"
 
 L["Copy Key"] = "Key kopieren"
 L["Challenge Key"] = "Challenge Key"
+
+L["Duration (minutes)"] = "Dauer (Minuten)"

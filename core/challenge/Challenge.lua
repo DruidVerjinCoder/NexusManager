@@ -13,11 +13,26 @@ local Challenge = {
     results = {}
 }
 
-function Challenge:New()
-    local challenge = {}
-    setmetatable(challenge, self)
-    self.__index = self
-    return challenge
+
+function Challenge:GenerateKey()
+    local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    local length = 8
+    local key = ""
+    
+    for i = 1, length do
+        local rand = random(1, strlen(chars))
+        key = key .. strsub(chars, rand, rand)
+    end
+    
+    return key
+end
+
+-- Optional: Füge eine Debug-Funktion hinzu
+function Challenge:PrintDebugInfo()
+    print("Challenge Debug Info:")
+    print("Key:", self.key or "kein Key")
+    print("State:", self.state or "kein State")
+    print("Leader:", self.leader or "kein Leader")
 end
 
 function Challenge:SendInvites()
@@ -25,11 +40,19 @@ function Challenge:SendInvites()
         return 
     end
     
-    
     self.state = "inviting"
     self.leader = UnitName("player")
     self.participants = {}
     self.pendingInvites = {}
+    
+    -- Generiere den Challenge Key beim Senden der Einladungen
+    self.key = self:GenerateKey()
+    print("Challenge Key generiert:", self.key) -- Debug print
+    
+    -- Aktualisiere das UI mit dem neuen Key
+    if NM.ChallengeTab then
+        NM.ChallengeTab:UpdateKeyDisplay(self.key)
+    end
     
     -- Host als ersten Teilnehmer hinzufügen
     self.participants[self.leader] = {
@@ -77,6 +100,9 @@ function Challenge:SendInvites()
         NM.ui.challenge:UpdateParticipants(self.participants)
         NM.ui.challenge:UpdateUIState("inviting", true)
     end
+    
+    -- Debug print
+    self:PrintDebugInfo()
 end
 
 function Challenge:Reset()

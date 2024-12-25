@@ -34,12 +34,44 @@ function ChallengeTab:Create()
     scrollContainer:SetHeight(400)
     container:AddChild(scrollContainer)
     
-    -- Duration Dropdown
-    local durationDropdown = AceGUI:Create("Dropdown")
-    durationDropdown:SetLabel(L["Duration"])
-    durationDropdown:SetList(self.WINDOW_CONFIG.DURATION_OPTIONS)
-    durationDropdown:SetWidth(200)
-    scrollContainer:AddChild(durationDropdown)
+    -- Duration Input
+    local durationInput = AceGUI:Create("EditBox")
+    durationInput:SetLabel(L["Duration (minutes)"])
+    durationInput:SetWidth(150)
+    durationInput:SetText("30") -- Standard: 30 Minuten
+    durationInput:SetMaxLetters(4) -- Maximal 4 Ziffern (9999 Minuten)
+
+    -- Nur Zahlen erlauben
+    durationInput:SetCallback("OnTextChanged", function(self)
+        -- Hole den aktuellen Text
+        local value = self:GetText()
+        
+        -- Entferne alle nicht-numerischen Zeichen
+        local numericValue = value:gsub("%D", "")
+        
+        -- Wenn der Wert sich geändert hat, update das Feld
+        if numericValue ~= value then
+            self:SetText(numericValue)
+        end
+        
+        -- Konvertiere zu Nummer und stelle sicher, dass sie im gültigen Bereich ist
+        local minutes = tonumber(numericValue) or 0
+        if minutes < 1 then minutes = 1 end
+        if minutes > 9999 then minutes = 9999 end
+        
+        -- Speichere den Wert für die Challenge
+        if NM.Challenge then
+            NM.Challenge.duration = minutes * 60 -- Konvertiere zu Sekunden
+        end
+    end)
+
+    -- Füge das Input Feld zum Container hinzu
+    scrollContainer:AddChild(durationInput)
+    
+    -- Deaktiviere das Input wenn die Challenge läuft
+    if NM.Challenge and NM.Challenge.state == "running" then
+        durationInput:SetDisabled(true)
+    end
     
     -- Button Container
     local buttonContainer = AceGUI:Create("SimpleGroup")
@@ -114,7 +146,7 @@ function ChallengeTab:Create()
     inviteButton:SetText(L["Send Invites"])
     inviteButton:SetWidth(self.WINDOW_CONFIG.BUTTON_WIDTH)
     inviteButton:SetCallback("OnClick", function()
-        local duration = durationDropdown:GetValue()
+        local duration =  NM.Challenge.duration
         if duration then
             NM.Challenge:SendInvites(duration)
             if not participantsContainer.parent then
@@ -261,7 +293,7 @@ function ChallengeTab:Create()
             participantsContainer.frame:Show()
             
             -- UI Status
-            durationDropdown:SetDisabled(true)
+            durationInput:SetDisabled(true)
             inviteButton:SetDisabled(true)
             
             -- Prüfe explizit ob wir der Host sind
@@ -282,7 +314,7 @@ function ChallengeTab:Create()
             participantsContainer.frame:Show()
             
             -- Alle Buttons deaktivieren im "running" Status
-            durationDropdown:SetDisabled(true)
+            durationInput:SetDisabled(true)
             inviteButton:SetDisabled(true)
             startButton:SetDisabled(true)
             
@@ -297,7 +329,7 @@ function ChallengeTab:Create()
                 participantsContainer.parent:Release(participantsContainer)
             end
             participantsContainer.frame:Hide()
-            durationDropdown:SetDisabled(false)
+            durationInput:SetDisabled(false)
             inviteButton:SetDisabled(false)
             startButton:SetDisabled(true)
         end
@@ -311,55 +343,32 @@ function ChallengeTab:Create()
     keyGroup:SetLayout("Flow")
     keyGroup:SetFullWidth(true)
 
-    if not NM.Challenge or not NM.Challenge.state then
-        -- Wenn keine Challenge aktiv ist: Zeige Input und Join Button
-        local keyInput = AceGUI:Create("EditBox")
-        keyInput:SetLabel(L["Challenge Key"] .. ":")
-        keyInput:SetWidth(200)
-        keyGroup:AddChild(keyInput)
-        
-        local joinButton = AceGUI:Create("Button")
-        joinButton:SetText(L["Join Challenge"])
-        joinButton:SetWidth(100)
-        joinButton:SetCallback("OnClick", function()
-            local inputKey = keyInput:GetText()
-            if inputKey and inputKey:len() > 0 then
-                NM.Challenge:JoinWithKey(inputKey)
-            end
-        end)
-        keyGroup:AddChild(joinButton)
-    else
-        -- Wenn Challenge aktiv ist: Zeige den Key
-        local keyLabel = AceGUI:Create("Label")
-        keyLabel:SetText(L["Challenge Key"] .. ": ")
-        keyLabel:SetWidth(100)
-        keyGroup:AddChild(keyLabel)
-        
-        local keyBox = AceGUI:Create("EditBox")
-        keyBox:SetText(NM.Challenge.key)
-        keyBox:SetWidth(120)
-        keyBox:SetDisabled(true)
-        keyGroup:AddChild(keyBox)
-        
-        local copyButton = AceGUI:Create("Button")
-        copyButton:SetText(L["Copy Key"])
-        copyButton:SetWidth(100)
-        copyButton:SetCallback("OnClick", function()
-            local editBox = CreateFrame("EditBox", "NMCopyKeyEditBox", UIParent)
-            editBox:SetMultiLine(false)
-            editBox:SetMaxLetters(0)
-            editBox:SetAutoFocus(true)
-            editBox:SetFontObject(ChatFontNormal)
-            editBox:Insert(NM.Challenge.key)
-            editBox:HighlightText()
-            editBox:SetFocus()
-            editBox:SetScript("OnTextChanged", function(self)
-                self:SetText(NM.Challenge.key)
-                self:HighlightText()
-            end)
-        end)
-        keyGroup:AddChild(copyButton)
-    end
+    -- Erstelle die UI-Elemente für den Key
+    local keyLabel = AceGUI:Create("Label")
+    keyLabel:SetText(L["Challenge Key"] .. ": ")
+    keyLabel:SetWidth(100)
+    keyGroup:AddChild(keyLabel)
+
+    local keyBox = AceGUI:Create("EditBox")
+    keyBox:SetWidth(120)
+    keyBox:SetDisabled(true)
+    keyGroup:AddChild(keyBox)
+
+    local copyButton = AceGUI:Create("Button")
+    copyButton:SetText(L["Copy Key"])
+    copyButton:SetWidth(100)
+    copyButton:SetCallback("OnClick", function()
+        local editBox = CreateFrame("EditBox", "NMCopyKeyEditBox", UIParent)
+        editBox:SetMultiLine(false)
+        editBox:SetMaxLetters(0)
+        editBox:SetAutoFocus(true)
+        editBox:SetFontObject(ChatFontNormal)
+        editBox:Insert(keyBox:GetText())
+        editBox:HighlightText()
+        editBox:SetFocus()
+    end)
+    copyButton:SetDisabled(true)
+    keyGroup:AddChild(copyButton)
 
     scrollContainer:AddChild(keyGroup)
     
@@ -369,6 +378,18 @@ function ChallengeTab:Create()
     scrollContainer:AddChild(divider)
     
     NM.ui.challenge = container
+
+    -- Speichere Referenzen auf die Key-UI-Elemente
+    self.keyBox = keyBox
+    self.keyInput = keyInput
+    self.joinButton = joinButton
+    self.copyButton = copyButton
+
+    -- Wenn bereits ein Key existiert, zeige ihn an
+    if NM.Challenge and NM.Challenge.key then
+        self:UpdateKeyDisplay(NM.Challenge.key)
+    end
+
     return container
 end
 
@@ -920,5 +941,17 @@ function ChallengeTab:UpdateResults(results)
     
     -- Aktualisiere auch die Navigation
     self:UpdateNavigation()
+end
+
+-- Neue Funktion zum Aktualisieren der Key-Anzeige
+function ChallengeTab:UpdateKeyDisplay(key)
+    if key and self.keyBox then
+        print("Updating key display with:", key) -- Debug print
+        self.keyBox:SetText(key)
+        
+        if self.copyButton then
+            self.copyButton:SetDisabled(false)
+        end
+    end
 end
 
