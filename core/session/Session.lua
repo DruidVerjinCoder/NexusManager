@@ -180,34 +180,74 @@ function session:GetPostrunMsg()
       return L["LA not running or paused. Please start or resume the session."]
    end
    
-   local msg = string.format("!postrun %s\n%s%s\n%s%s\n%s%s\n%s%d\n%s%d\n%s%d\n%s%s\n%s%s%s",
+   -- Basis-Nachricht mit dem gewünschten Format
+   local msg = string.format("!postrun %s\n%s%s\n%s%s\n%s%s",
       self.farmName or "",
-      L["Class: "], L[self.class],
-      L["Duration: "], self:GetDurationString(),
-      L["LIV: "], self:FormatGold(self.liv),
-      L["Uncommon: "], self.uncommon,
-      L["Rare: "], self.rare,
-      L["Epic: "], self.epic,
-      L["Gold looted: "], self:FormatGold(self.lootedGold),
-      L["Gold total: "], self:FormatGold(self.totalGold),
-      NM.DB:UpdateOutput()
+      L["Class:"], L[self.class],
+      L["Time:"], self:GetDurationString(),
+      L["LIV:"], self:FormatGold(self.liv)
    )
+   
+   -- Füge Instanz-Informationen hinzu wenn vorhanden
+   if self.instance then
+      -- Füge Schwierigkeit hinzu
+      local difficultyName = GetDifficultyInfo(self.instance.difficulty)
+      msg = msg .. string.format("\n%s%s", L["Mode:"], difficultyName)
+      
+      -- Füge Runs für alle Instanztypen hinzu
+      msg = msg .. string.format("\n%s%d", L["Runs:"], self.instanceRuns or 1)
+   end
+   
+   -- Füge Item-Statistiken hinzu
+   msg = msg .. string.format("\n%s%d\n%s%d\n%s%d",
+      L["Uncommon:"], self.uncommon,
+      L["Rare:"], self.rare,
+      L["Epic:"], self.epic
+   )
+   
+   -- Füge Gold-Informationen hinzu
+   msg = msg .. string.format("\n%s%s\n%s%s",
+      L["Gold looted:"], self:FormatGold(self.lootedGold),
+      L["Gold total:"], self:FormatGold(self.totalGold)
+   )
+   
+   -- Füge Annotation hinzu (UpdateOutput fügt bereits einen Zeilenumbruch hinzu)
+   msg = msg .. NM.DB:UpdateOutput()
+   
    return msg
 end
 
 function session:zoneSwitched()
    if IsInInstance() then
       local name, type, difficulty = GetInstanceInfo()
+      
+      -- Wenn wir bereits in einer Instanz waren
+      if self.instance then
+         -- Wenn es die gleiche Instanz ist
+         if self.instance.name == name then
+            -- Erhöhe für alle Instanztypen den Counter
+            self.instanceRuns = (self.instanceRuns or 1) + 1
+         else
+            -- Neue Instanz
+            self.instanceRuns = 1
+         end
+      else
+         -- Erste Instanz
+         self.instanceRuns = 1
+      end
+      
+      -- Aktualisiere Instanz-Informationen
       self.instance = {
          name = name,
          type = type,
          difficulty = difficulty
       }
+      
       if not self.farmName then
          self.farmName = name
       end
-      self.instanceRuns = (self.instanceRuns or 0) + 1
    else
+      -- Außerhalb der Instanz
       self.instance = nil
    end
 end
