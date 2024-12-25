@@ -386,9 +386,16 @@ function ChallengeTab:Create()
         -- Wenn keine Challenge aktiv ist, zeige Join Button
         actionButton:SetText(L["Join Challenge"])
         actionButton:SetCallback("OnClick", function()
-            local inputKey = keyBox:GetText()
+            local inputKey = keyBox:GetText() -- Hole den Text aus dem Eingabefeld
             if inputKey and inputKey:len() > 0 then
+                print("Versuche mit Key beizutreten:", inputKey) -- Debug
+                -- Erstelle eine neue Challenge-Instanz wenn nötig
+                if not NM.Challenge then
+                    NM.Challenge = NM.Challenge:New()
+                end
                 NM.Challenge:JoinWithKey(inputKey)
+            else
+                print(L["Please enter a challenge key"]) -- Fehlermeldung wenn kein Key eingegeben wurde
             end
         end)
     end

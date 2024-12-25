@@ -332,7 +332,7 @@ function Challenge:HandleMessage(sender, message)
     if not success then 
         return 
     end
-
+    NM:Print(data.type)
     if data.type == "LIVE_UPDATE" then
         -- Log nur die deserialisierten Daten
         if self.state == "running" then
@@ -464,7 +464,9 @@ function Challenge:HandleMessage(sender, message)
     
     if data.type == "JOIN_REQUEST" then
         -- Wenn wir der Host sind und der Key stimmt
-        if self.participants[UnitName("player")].isHost and data.data.key == self.key then
+        -- NM:Print("JOIN_REQUEST started with key " .. data.data.key)
+        -- NM:Print("Compare key " .. data.data.key .. " with " .. self.key)
+        if self.participants[UnitName("player")].isHost and data.data.ckey == self.key then
             -- Füge den Spieler hinzu
             self.participants[data.data.player] = {
                 accepted = true,
@@ -621,16 +623,14 @@ function Challenge:SendLiveUpdate(player, livData)
 end
 
 function Challenge:JoinWithKey(inputKey)
+    NM:Print("JoinWithKey started with key " .. inputKey)
     -- Sende Join-Request an alle Freunde
     local message = {
-        type = "JOIN_REQUEST",
-        data = {
-            key = inputKey,
+            ckey = inputKey,
             player = UnitName("player")
-        }
     }
     
-    self:BroadcastMessage("JOIN_REQUEST", message.data)
+    self:BroadcastMessage("JOIN_REQUEST", message)
 end
 
 -- Neue Hilfsfunktion
@@ -644,7 +644,7 @@ function Challenge:SendChallengeDataTo(player)
         endTime = self.endTime,
         results = self.results
     }
-    
+    NM:Print("Sende Challenge-Daten an " .. player)
     self:BroadcastMessage("CHALLENGE_DATA", challengeData, player)
 end
 

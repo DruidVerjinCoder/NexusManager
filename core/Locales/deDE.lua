@@ -108,3 +108,11 @@ L["Key copied to clipboard"] = "Key in die Zwischenablage kopiert"
 
 L["Copy Challenge Key"] = "Challenge Key kopieren"
 L["Close"] = "Schließen"
+
+L["%s wants to join your challenge. Accept?"] = "%s möchte deiner Challenge beitreten. Akzeptieren?"
+L["No online friends found to send join request"] = "Keine Online-Freunde gefunden, um Beitrittsanfrage zu senden"
+
+L["Join request sent"] = "Beitrittsanfrage gesendet"
+L["Join request sent to %s"] = "Beitrittsanfrage an %s gesendet"
+
+L["Please enter a challenge key"] = "Bitte gib einen Challenge-Key ein"
