@@ -682,6 +682,12 @@ function Challenge:SendChallengeDataTo(player)
     }
     NM:Print("Sende Challenge-Daten an " .. player)
     self:BroadcastMessage("CHALLENGE_DATA", challengeData)
+    
+    -- Informiere alle Teilnehmer über den neuen Spieler
+    self:BroadcastMessage("UPDATE_PARTICIPANTS", {
+        participants = self.participants,
+        state = self.state
+    })
 end
 
 -- Neue Hilfsfunktion um akzeptierte Teilnehmer zu erhalten
