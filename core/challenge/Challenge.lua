@@ -237,6 +237,11 @@ function Challenge:AddResult(player, results)
 end
 
 function Challenge:BroadcastMessage(type, data, specificID)
+    -- Füge den Key zu den Daten hinzu
+    if type ~= "INVITE" then -- Bei Einladungen noch keinen Key mitschicken
+        data.key = self.key
+    end
+    
     local message = {
         type = type,
         data = data,
@@ -415,6 +420,23 @@ function Challenge:HandleMessage(sender, message)
             self:UpdateLiveResult(data.data.player, data.data)
         end
     end
+    
+    if data.type == "JOIN_REQUEST" then
+        -- Wenn wir der Host sind und der Key stimmt
+        if self.participants[UnitName("player")].isHost and data.data.key == self.key then
+            -- Füge den Spieler hinzu
+            self.participants[data.data.player] = {
+                accepted = true,
+                declined = false,
+                online = true,
+                isHost = false,
+                liv = 0
+            }
+            
+            -- Sende aktuelle Challenge-Daten an den neuen Teilnehmer
+            self:SendChallengeDataTo(data.data.player)
+        end
+    end
 end
 
 function Challenge:ShowFinalResults()
@@ -555,4 +577,32 @@ function Challenge:SendLiveUpdate(player, livData)
             end
         end
     end
+end
+
+function Challenge:JoinWithKey(inputKey)
+    -- Sende Join-Request an alle Freunde
+    local message = {
+        type = "JOIN_REQUEST",
+        data = {
+            key = inputKey,
+            player = UnitName("player")
+        }
+    }
+    
+    self:BroadcastMessage("JOIN_REQUEST", message.data)
+end
+
+-- Neue Hilfsfunktion
+function Challenge:SendChallengeDataTo(player)
+    local challengeData = {
+        key = self.key,
+        state = self.state,
+        participants = self.participants,
+        duration = self.duration,
+        startTime = self.startTime,
+        endTime = self.endTime,
+        results = self.results
+    }
+    
+    self:BroadcastMessage("CHALLENGE_DATA", challengeData, player)
 end 

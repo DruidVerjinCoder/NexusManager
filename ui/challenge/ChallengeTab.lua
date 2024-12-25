@@ -58,7 +58,7 @@ function ChallengeTab:Create()
     local participantsScroll = AceGUI:Create("ScrollFrame")
     participantsScroll:SetLayout("List")
     participantsScroll:SetFullWidth(true)
-    participantsScroll:SetHeight(200)
+    participantsScroll:SetHeight(150)
     participantsContainer:AddChild(participantsScroll)
     
     -- Challenge Control Buttons nebeneinander
@@ -305,6 +305,68 @@ function ChallengeTab:Create()
     
     -- Initial UI State
     container:UpdateUIState(nil, false)
+    
+    -- Key Gruppe
+    local keyGroup = AceGUI:Create("SimpleGroup")
+    keyGroup:SetLayout("Flow")
+    keyGroup:SetFullWidth(true)
+
+    if not NM.Challenge or not NM.Challenge.state then
+        -- Wenn keine Challenge aktiv ist: Zeige Input und Join Button
+        local keyInput = AceGUI:Create("EditBox")
+        keyInput:SetLabel(L["Challenge Key"] .. ":")
+        keyInput:SetWidth(200)
+        keyGroup:AddChild(keyInput)
+        
+        local joinButton = AceGUI:Create("Button")
+        joinButton:SetText(L["Join Challenge"])
+        joinButton:SetWidth(100)
+        joinButton:SetCallback("OnClick", function()
+            local inputKey = keyInput:GetText()
+            if inputKey and inputKey:len() > 0 then
+                NM.Challenge:JoinWithKey(inputKey)
+            end
+        end)
+        keyGroup:AddChild(joinButton)
+    else
+        -- Wenn Challenge aktiv ist: Zeige den Key
+        local keyLabel = AceGUI:Create("Label")
+        keyLabel:SetText(L["Challenge Key"] .. ": ")
+        keyLabel:SetWidth(100)
+        keyGroup:AddChild(keyLabel)
+        
+        local keyBox = AceGUI:Create("EditBox")
+        keyBox:SetText(NM.Challenge.key)
+        keyBox:SetWidth(120)
+        keyBox:SetDisabled(true)
+        keyGroup:AddChild(keyBox)
+        
+        local copyButton = AceGUI:Create("Button")
+        copyButton:SetText(L["Copy Key"])
+        copyButton:SetWidth(100)
+        copyButton:SetCallback("OnClick", function()
+            local editBox = CreateFrame("EditBox", "NMCopyKeyEditBox", UIParent)
+            editBox:SetMultiLine(false)
+            editBox:SetMaxLetters(0)
+            editBox:SetAutoFocus(true)
+            editBox:SetFontObject(ChatFontNormal)
+            editBox:Insert(NM.Challenge.key)
+            editBox:HighlightText()
+            editBox:SetFocus()
+            editBox:SetScript("OnTextChanged", function(self)
+                self:SetText(NM.Challenge.key)
+                self:HighlightText()
+            end)
+        end)
+        keyGroup:AddChild(copyButton)
+    end
+
+    scrollContainer:AddChild(keyGroup)
+    
+    -- Füge eine Trennlinie hinzu
+    local divider = AceGUI:Create("Heading")
+    divider:SetFullWidth(true)
+    scrollContainer:AddChild(divider)
     
     NM.ui.challenge = container
     return container

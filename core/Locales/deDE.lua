@@ -94,3 +94,10 @@ L["No participants have accepted the challenge"] = "Keine Teilnehmer haben die H
 -- Challenge Results
 L["Total LIV: %d"] = "Gesamt LIV: %d"
 L["Winner: %s with %d LIV"] = "Gewinner: %s mit %d LIV"
+
+L["Join Challenge"] = "Challenge beitreten"
+L["Invalid challenge key"] = "Ungültiger Challenge-Key"
+L["Successfully joined challenge"] = "Challenge erfolgreich beigetreten"
+
+L["Copy Key"] = "Key kopieren"
+L["Challenge Key"] = "Challenge Key"
