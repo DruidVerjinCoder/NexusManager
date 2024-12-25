@@ -372,6 +372,7 @@ function Challenge:HandleMessage(sender, message)
     if data.type == "CHALLENGE_END" then
         NM.session:pause()
         NM:Print(L["Challenge ended!"])
+        self:ShowFloatingText(L["Challenge Complete!"])
     end
     
     if data.type == "LIVE_UPDATE" then
@@ -708,3 +709,40 @@ function Challenge:GetAcceptedParticipants()
     end
     return accepted
 end 
+
+function Challenge:ShowFloatingText(text)
+    -- Erstelle einen neuen Frame falls er noch nicht existiert
+    if not self.floatingFrame then
+        self.floatingFrame = CreateFrame("Frame", "NexusManagerFloatingText", UIParent)
+        self.floatingFrame:SetSize(400, 50)
+        self.floatingFrame:SetPoint("TOP", UIParent, "CENTER", 0, 100)
+        
+        -- Erstelle das Text Label
+        self.floatingFrame.text = self.floatingFrame:CreateFontString(nil, "OVERLAY")
+        self.floatingFrame.text:SetPoint("CENTER")
+        self.floatingFrame.text:SetFont("Fonts\\FRIZQT__.TTF", 32, "OUTLINE")
+    end
+    
+    -- Setze den Text
+    self.floatingFrame.text:SetText(text)
+    self.floatingFrame:Show()
+    
+    -- Animation
+    self.floatingFrame:SetAlpha(0)
+    self.floatingFrame:Show()
+    
+    -- Fade In
+    UIFrameFadeIn(self.floatingFrame, 0.5, 0, 1)
+    
+    -- Nach 2 Sekunden Fade Out
+    C_Timer.After(2, function()
+        UIFrameFadeOut(self.floatingFrame, 0.5, 1, 0)
+        -- Verstecke den Frame nach dem Fade Out
+        C_Timer.After(0.5, function()
+            self.floatingFrame:Hide()
+        end)
+    end)
+    
+    -- Spiele einen Sound ab (optional)
+    PlaySound(SOUNDKIT.RAID_WARNING)
+end
