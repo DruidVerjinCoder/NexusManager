@@ -326,8 +326,61 @@ function ChallengeTab:Create()
         end
     end
     
-    -- UI State Updates
-    function container:UpdateUIState(state, isHost)
+   
+    
+    -- Key Gruppe
+    local keyGroup = AceGUI:Create("SimpleGroup")
+    keyGroup:SetLayout("Flow")
+    keyGroup:SetFullWidth(true)
+
+    -- Erstelle die UI-Elemente für den Key
+    local keyLabel = AceGUI:Create("Label")
+    keyLabel:SetText(L["Challenge Key"] .. ": ")
+    keyLabel:SetWidth(100)
+    keyGroup:AddChild(keyLabel)
+
+    local keyBox = AceGUI:Create("EditBox")
+    keyBox:SetLabel(L["Challenge Key"])
+    keyBox:SetWidth(150)
+    self.keyBox = keyBox
+
+    local keyButton = AceGUI:Create("Button")
+    keyButton:SetText(L["Join"])
+    keyButton:SetWidth(80)
+    keyButton:SetCallback("OnClick", function()
+        -- Hole den Key aus der Input Box
+        local key = keyBox:GetText()
+        if key and key ~= "" then
+            NM.Challenge:Join(key)
+        else
+            NM:Print(L["Please enter a challenge key"])
+        end
+    end)
+    self.keyButton = keyButton
+
+    keyGroup:AddChild(keyBox)
+    keyGroup:AddChild(keyButton)
+
+    scrollContainer:AddChild(keyGroup)
+    
+    -- Füge eine Trennlinie hinzu
+    local divider = AceGUI:Create("Heading")
+    divider:SetFullWidth(true)
+    scrollContainer:AddChild(divider)
+    
+    NM.ui.challenge = container
+
+    -- Speichere Referenzen auf die Key-UI-Elemente
+    self.keyBox = keyBox
+
+    -- Wenn bereits ein Key existiert, zeige ihn an
+    if NM.Challenge and NM.Challenge.key then
+        self:UpdateKeyDisplay(NM.Challenge.key)
+    end
+
+
+     -- UI State Updates
+     function container:UpdateUIState(state, isHost)
         -- Zeige/Verstecke UI Elemente basierend auf dem Status
         if state == "initial" then
             -- Verstecke Teilnehmerliste
@@ -347,9 +400,15 @@ function ChallengeTab:Create()
                 inviteButton:SetDisabled(false)
             end
             
-            -- Reset Key
-            if keyBox then
-                keyBox:SetText("")
+            
+            -- Reset Key und Join Button
+            if self.keyBox then
+                self.keyBox:SetText("")
+                self.keyBox:SetDisabled(false)
+            end
+            if self.keyButton then
+                self.keyButton:SetText(L["Join"])
+                self.keyButton:SetDisabled(false)
             end
             
         elseif state == "inviting" then
@@ -373,6 +432,14 @@ function ChallengeTab:Create()
                 startButton:SetDisabled(true)
             end
             
+            -- Deaktiviere Key Input und Join Button während einer Challenge
+            if self.keyBox then
+                self.keyBox:SetDisabled(true)
+            end
+            if self.keyButton then
+                self.keyButton:SetDisabled(true)
+            end
+            
         elseif state == "running" then
             if not participantsContainer.parent then
                 scrollContainer:AddChild(participantsContainer)
@@ -389,6 +456,14 @@ function ChallengeTab:Create()
                 NM.Challenge.state = "running"
             end
             
+            -- Deaktiviere Key Input und Join Button während einer Challenge
+            if self.keyBox then
+                self.keyBox:SetDisabled(true)
+            end
+            if self.keyButton then
+                self.keyButton:SetDisabled(true)
+            end
+            
         else
             -- Kein aktiver Challenge-Status
             if participantsContainer.parent then
@@ -403,90 +478,6 @@ function ChallengeTab:Create()
     
     -- Initial UI State
     container:UpdateUIState(nil, false)
-    
-    -- Key Gruppe
-    local keyGroup = AceGUI:Create("SimpleGroup")
-    keyGroup:SetLayout("Flow")
-    keyGroup:SetFullWidth(true)
-
-    -- Erstelle die UI-Elemente für den Key
-    local keyLabel = AceGUI:Create("Label")
-    keyLabel:SetText(L["Challenge Key"] .. ": ")
-    keyLabel:SetWidth(100)
-    keyGroup:AddChild(keyLabel)
-
-    local keyBox = AceGUI:Create("EditBox")
-    keyBox:SetWidth(120)
-
-    -- Wenn eine Challenge aktiv ist, zeige den Key an
-    if NM.Challenge and NM.Challenge.key then
-        keyBox:SetText(NM.Challenge.key)
-        keyBox:SetDisabled(true)
-    else
-        keyBox:SetDisabled(false) -- Erlaubt Eingabe wenn keine Challenge aktiv
-    end
-    keyGroup:AddChild(keyBox)
-
-    local actionButton = AceGUI:Create("Button")
-    if NM.Challenge and NM.Challenge.key then
-        -- Wenn eine Challenge aktiv ist, zeige Copy Button
-        actionButton:SetText(L["Copy Key"])
-        actionButton:SetCallback("OnClick", function()
-            local dialog = AceGUI:Create("Frame")
-            dialog:SetTitle(L["Copy Challenge Key"])
-            dialog:SetLayout("Flow")
-            dialog:SetWidth(300)
-            dialog:SetHeight(100)
-            
-            local editBox = AceGUI:Create("EditBox")
-            editBox:SetFullWidth(true)
-            editBox:SetText(keyBox:GetText())
-            dialog:AddChild(editBox)
-            
-            C_Timer.After(0.1, function()
-                editBox.editbox:SetFocus()
-                editBox.editbox:HighlightText()
-            end)
-        end)
-    else
-        -- Wenn keine Challenge aktiv ist, zeige Join Button
-        actionButton:SetText(L["Join Challenge"])
-        actionButton:SetCallback("OnClick", function()
-            local inputKey = keyBox:GetText() -- Hole den Text aus dem Eingabefeld
-            if inputKey and inputKey:len() > 0 then
-                print("Versuche mit Key beizutreten:", inputKey) -- Debug
-                -- Erstelle eine neue Challenge-Instanz wenn nötig
-                if not NM.Challenge then
-                    NM.Challenge = NM.Challenge:New()
-                end
-                NM.Challenge:JoinWithKey(inputKey)
-            else
-                print(L["Please enter a challenge key"]) -- Fehlermeldung wenn kein Key eingegeben wurde
-            end
-        end)
-    end
-    actionButton:SetWidth(100)
-    keyGroup:AddChild(actionButton)
-
-    scrollContainer:AddChild(keyGroup)
-    
-    -- Füge eine Trennlinie hinzu
-    local divider = AceGUI:Create("Heading")
-    divider:SetFullWidth(true)
-    scrollContainer:AddChild(divider)
-    
-    NM.ui.challenge = container
-
-    -- Speichere Referenzen auf die Key-UI-Elemente
-    self.keyBox = keyBox
-    self.keyInput = keyInput
-    self.joinButton = joinButton
-    self.copyButton = copyButton
-
-    -- Wenn bereits ein Key existiert, zeige ihn an
-    if NM.Challenge and NM.Challenge.key then
-        self:UpdateKeyDisplay(NM.Challenge.key)
-    end
 
     return container
 end
