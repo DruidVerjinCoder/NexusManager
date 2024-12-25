@@ -460,6 +460,36 @@ function Challenge:HandleMessage(sender, message)
         if self.state == "running" then
             self:UpdateLiveResult(data.data.player, data.data)
         end
+    elseif data.type == "CHALLENGE_DATA" then
+        -- Nur verarbeiten, wenn wir noch keine laufende Session haben
+        if self.state ~= "running" then
+            -- Übernehme die Challenge-Daten
+            self.key = data.data.key
+            self.state = data.data.state
+            self.participants = data.data.participants
+            self.duration = data.data.duration
+            self.startTime = data.data.startTime
+            self.endTime = data.data.endTime
+            self.results = data.data.results
+            
+            -- Starte die Session, wenn die Challenge läuft
+            if self.state == "running" and NM.session then
+                NM.session:reset()
+                NM.session.state = "running"
+                -- Starte Live-Updates
+                self:StartLiveUpdates()
+            end
+            
+            -- UI aktualisieren
+            if NM.ui and NM.ui.challenge then
+                NM.ui.challenge:UpdateParticipants(self.participants, self.results)
+                NM.ui.challenge:UpdateUIState(self.state, UnitName("player") == self.leader)
+            end
+            
+            NM:Print(L["Joined ongoing challenge"])
+        else
+            NM:Print(L["Already in a running challenge"])
+        end
     end
     
     if data.type == "JOIN_REQUEST" then
