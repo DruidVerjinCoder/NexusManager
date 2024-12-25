@@ -68,7 +68,6 @@ function ChallengeTab:Create()
     startButton:SetWidth(self.WINDOW_CONFIG.BUTTON_WIDTH)
     startButton:SetDisabled(true)  -- Initial deaktiviert
     startButton:SetCallback("OnClick", function()
-
         -- Starte Session des Leaders/Hosts
         if NM.session then
             NM.session:reset()
@@ -92,19 +91,19 @@ function ChallengeTab:Create()
             end
             participantsContainer.frame:Show()
             
-            -- Host wird sofort als Teilnehmer hinzugefügt
+            -- Host wird sofort als Teilnehmer hinzugefügt und als Leader markiert
             local playerName = UnitName("player")
             if not NM.Challenge.participants[playerName] then
                 NM.Challenge.participants[playerName] = {
                     accepted = true,
                     isHost = true,
+                    isLeader = true,  -- Explizit als Leader markieren
                     online = true
                 }
+                -- UI sofort aktualisieren mit Leader-Status
+                container:UpdateUIState("inviting", true)
                 container:UpdateParticipants(NM.Challenge.participants, NM.Challenge.results)
             end
-            
-            -- Start Button sofort aktivieren
-            startButton:SetDisabled(false)
         else
             NM:Print(L["Please select a duration first"])
         end
@@ -213,7 +212,6 @@ function ChallengeTab:Create()
     
     -- UI State Updates
     function container:UpdateUIState(state, isLeader)
-        
         -- Zeige/Verstecke UI Elemente basierend auf dem Status
         if state == "inviting" then
             if not participantsContainer.parent then
@@ -221,20 +219,17 @@ function ChallengeTab:Create()
             end
             participantsContainer.frame:Show()
             
-            -- Response Buttons werden nicht mehr benötigt
-            -- responseContainer.frame:SetShown(not isLeader)
-            
             -- UI Status
             durationDropdown:SetDisabled(true)
             inviteButton:SetDisabled(true)
             
-            -- Start Button ist aktiv für Leader
-            if isLeader then
-                startButton:SetDisabled(false)
-                -- Host wird automatisch als Teilnehmer hinzugefügt
-                if not NM.Challenge.participants[UnitName("player")] then
-                    NM.Challenge:Accept()
-                end
+            -- Prüfe explizit ob wir der Host sind
+            local playerName = UnitName("player")
+            local isHost = NM.Challenge.participants[playerName] and NM.Challenge.participants[playerName].isHost
+            
+            -- Start Button ist aktiv für Leader/Host
+            if isHost then
+                startButton:SetDisabled(false)  -- Immer aktiviert für den Host
             else
                 startButton:SetDisabled(true)
             end
