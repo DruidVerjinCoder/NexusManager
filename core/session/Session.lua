@@ -132,7 +132,7 @@ function session:addItem(itemID, quantity)
    self.items[itemID].quantity = self.items[itemID].quantity + quantity
    self.liv = self.liv + (self.items[itemID].value * quantity)
    
-   local _, _, quality, _, _, itemType = GetItemInfo(itemID)
+   local _, _, quality, _, _, itemType = C_Item.GetItemInfo(itemID)
    if quality and (itemType == "Armor" or itemType == "Weapon") then
       if quality == 2 then self.uncommon = self.uncommon + quantity
       elseif quality == 3 then self.rare = self.rare + quantity
@@ -189,20 +189,8 @@ function session:GetPostrunMsg()
       L["Epic: "], self.epic,
       L["Gold looted: "], self:FormatGold(self.lootedGold),
       L["Gold total: "], self:FormatGold(self.totalGold),
-      L["Annotations: "]
+      L["Annotations: "], self:UpdateOutput()
    )
-   
-   -- Add tracked items under Annotations
-   if self.itemsLooted and next(self.itemsLooted) then
-      for itemID, count in pairs(self.itemsLooted) do
-         local itemName, _, itemRarity = C_Item.GetItemInfo(itemID)
-         if itemName then
-            local _, _, _, hexColor = C_Item.GetItemQualityColor(itemRarity)
-            msg = msg .. string.format("%dx |c%s%s|r ", count, hexColor, itemName)
-         end
-      end
-   end
-   
    return msg
 end
 
@@ -281,6 +269,85 @@ function session:SendChallengeUpdate()
    if NM.Challenge.BroadcastMessage then
       NM.Challenge:BroadcastMessage("LIVE_UPDATE", currentData)
    end
+end
+
+
+function session:UpdateOutput(text)
+   local annotations = {}
+   local outputText = text or ""
+   local categorizedItems = {
+      armor_weapons = {},
+      tradegoods = {},
+      recipes = {},
+      miscellaneous = {},
+      battlePets = {}
+   }
+   
+   -- Kategorisiere die gelooteten Items
+   if self.itemsLooted then
+      for itemID, count in pairs(self.itemsLooted) do
+         local itemName, _, itemRarity, _, _, itemType, subType, _, _, _, _, classID, subclassID = C_Item.GetItemInfo(itemID)
+         if itemName then
+            local _, _, _, hexColor = C_Item.GetItemQualityColor(itemRarity)
+            local itemText = string.format("%dx %s%s|r", count, hexColor, itemName)
+            
+            -- Prüfe die Kategorie und die Einstellungen
+            if NM.DB:ShouldTrackItem(itemID) then
+               -- Waffen und Rüstung
+               if classID == Enum.ItemClass.Weapon or classID == Enum.ItemClass.Armor then
+                  table.insert(categorizedItems.armor_weapons, itemText)
+               
+               -- Handelswaren
+               elseif classID == Enum.ItemClass.Tradegoods then
+                  table.insert(categorizedItems.tradegoods, itemText)
+               
+               -- Rezepte
+               elseif classID == Enum.ItemClass.Recipe then
+                  table.insert(categorizedItems.recipes, itemText)
+               
+               -- Kampfhaustiere
+               elseif classID == Enum.ItemClass.BattlePet then
+                  table.insert(categorizedItems.battlePets, itemText)
+               
+               -- Sonstiges
+               else
+                  table.insert(categorizedItems.miscellaneous, itemText)
+               end
+            end
+         end
+      end
+   end
+   
+   -- Füge kategorisierte Items zum Output hinzu
+   local function addCategoryToOutput(items, categoryName)
+      if #items > 0 then
+         table.insert(annotations, table.concat(items, ", "))
+      end
+   end
+   
+   -- Füge die Kategorien in der gewünschten Reihenfolge hinzu
+   if #categorizedItems.armor_weapons > 0 then
+      addCategoryToOutput(categorizedItems.armor_weapons, L["Armor/Weapons"])
+   end
+   if #categorizedItems.tradegoods > 0 then
+      addCategoryToOutput(categorizedItems.tradegoods, L["Tradegoods"])
+   end
+   if #categorizedItems.recipes > 0 then
+      addCategoryToOutput(categorizedItems.recipes, L["Recipes"])
+   end
+   if #categorizedItems.battlePets > 0 then
+      addCategoryToOutput(categorizedItems.battlePets, L["Battle-Pets"])
+   end
+   if #categorizedItems.miscellaneous > 0 then
+      addCategoryToOutput(categorizedItems.miscellaneous, L["Miscellaneous"])
+   end
+   
+   -- Combine original text with annotations
+   if #annotations > 0 then
+      outputText = outputText .. table.concat(annotations, "\n")
+   end
+   
+   return outputText
 end
 
 NM.session = session

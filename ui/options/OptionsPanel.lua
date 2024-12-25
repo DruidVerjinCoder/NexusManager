@@ -197,10 +197,7 @@ function OptionsPanel:createOptionsTables(name, optionsList, profilePath, descri
 end
 
 function OptionsPanel:OpenConfig()
-    print("NexusManager: Attempting to open config")
     if Settings and Settings.OpenToCategory then
         Settings.OpenToCategory("NexusManager")
-    else
-        print("NexusManager: Settings API not available")
     end
 end

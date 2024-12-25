@@ -2,7 +2,7 @@ local NM = LibStub("AceAddon-3.0"):GetAddon("NexusManager")
 local L = NM.Locale
 
 -- Database module
-local DB = {}
+local DB = NM:NewModule("DB")
 NM.DB = DB
 
 -- SavedVariables Schema Definition
@@ -37,33 +37,139 @@ DB.PROFESSION_TYPES = {
     [L["Cooking"]] = "cooking"
 }
 
--- Database Initialization and Validation
-function DB:InitializeDB()
-    if not NM.db then
-        return
-    end
+-- Aktuelle Version der DB-Struktur
+local CURRENT_DB_VERSION = 1
 
-    -- Initialize global settings if needed
-    if not NM.db.global then
-        NM.db.global = SAVED_VARIABLES_SCHEMA.global
-    end
+-- Vollständige Standardwerte für neue Profile
+local defaults = {
+    profile = {
+        dbVersion = 0,  -- Startet bei 0 für neue Profile
+        minimap = {
+            hide = false,
+        },
+        debug = false,
+        general = {
+            poor = false,
+            common = false,
+            uncommon = false,
+            rare = false,
+            epic = false,
+            legendary = false
+        },
+        tradegoods = {
+            parts = false,
+            explosives = false,
+            devices = false,
+            jewelcrafting = false,
+            cloth = false,
+            leather = false,
+            metal_stone = false,
+            cooking = false,
+            herb = false,
+            enchanting = false,
+            inscription = false,
+            other = false
+        },
+        recipe = {
+            book = false,
+            leatherworking = false,
+            tailoring = false,
+            engineering = false,
+            blacksmithing = false,
+            cooking = false,
+            alchemy = false,
+            firstaid = false,
+            enchanting = false,
+            fishing = false,
+            jewelcrafting = false,
+            inscription = false
+        },
+        battlePets = {
+            humanoid = false,
+            dragonkin = false,
+            flying = false,
+            undead = false,
+            critter = false,
+            magic = false,
+            elemental = false,
+            beast = false,
+            aquatic = false,
+            mechanical = false
+        },
+        miscellaneous = {
+            junk = false,
+            reagent = false,
+            companionPet = false,
+            holiday = false,
+            other = false,
+            mount = false,
+            mountEquipment = false
+        }
+    }
+}
 
-    -- Initialize profile settings if needed
-    if not NM.db.profile then
-        NM.db.profile = SAVED_VARIABLES_SCHEMA.profile
-    else
-        -- Stelle sicher, dass alle Profilsektionen existieren
-        for section, defaults in pairs(SAVED_VARIABLES_SCHEMA.profile) do
-            if not NM.db.profile[section] then
-                NM.db.profile[section] = defaults
+function DB:OnInitialize()
+    NM:Log("Initializing DB")
+    -- Initialisiere die Datenbank
+    NM.db = LibStub("AceDB-3.0"):New("NexusManagerDB", defaults, true)
+    
+    -- Führe Migration durch
+    self:MigrateProfile()
+end
+
+function DB:MigrateProfile()
+    if not NM.db or not NM.db.profile then return end
+    
+    local currentVersion = NM.db.profile.dbVersion or 0
+    NM:Log(string.format("Current DB version: %d, Latest version: %d", currentVersion, CURRENT_DB_VERSION))
+
+    -- Migration für jede Version durchführen
+    while currentVersion < CURRENT_DB_VERSION do
+        currentVersion = currentVersion + 1
+        NM:Log("Migrating to version " .. currentVersion)
+
+        -- Version 1: Grundstruktur und tradeskill -> tradegoods Migration
+        if currentVersion == 1 then
+            -- Migriere tradeskill zu tradegoods
+            if NM.db.profile.tradeskill then
+                NM:Log("Migrating tradeskill to tradegoods...")
+                if not NM.db.profile.tradegoods then
+                    NM.db.profile.tradegoods = {}
+                end
+                for k, v in pairs(NM.db.profile.tradeskill) do
+                    NM.db.profile.tradegoods[k] = v
+                end
+                NM.db.profile.tradeskill = nil
+            end
+
+            -- Stelle sicher, dass alle Kategorien existieren
+            for category, defaults in pairs(defaults.profile) do
+                if type(defaults) == "table" and category ~= "minimap" then
+                    if not NM.db.profile[category] then
+                        NM:Log("Creating missing category: " .. category)
+                        NM.db.profile[category] = {}
+                    end
+                    -- Füge fehlende Keys hinzu
+                    for k, v in pairs(defaults) do
+                        if NM.db.profile[category][k] == nil then
+                            NM:Log(string.format("Adding missing key: %s.%s", category, k))
+                            NM.db.profile[category][k] = v
+                        end
+                    end
+                end
             end
         end
+
+        -- Hier können weitere Versionen hinzugefügt werden
+        -- if currentVersion == 2 then
+        --     -- Migration für Version 2
+        -- end
+
+        -- Aktualisiere die Versionnummer
+        NM.db.profile.dbVersion = currentVersion
+        NM:Log("Migration to version " .. currentVersion .. " complete")
     end
 
-    -- Version check and migration if needed
-    if NM.db.global.version ~= SAVED_VARIABLES_SCHEMA.global.version then
-        self:MigrateDB(NM.db.global.version)
-    end
 end
 
 function DB:MigrateDB(oldVersion)
@@ -692,12 +798,6 @@ function NM:InitializeProfessionTracking()
     end
 end
 
-function DB:OnInitialize()
-    self:InitializeProfessionTracking()
-    
-end
-
--- Helper function to initialize character data structure
 function DB:InitializeCharacterData(char)
     if not char.todos then
         char.todos = {
@@ -812,49 +912,80 @@ NM.LoadMissingProfessionTodoToCharacter = function()
 end
 
 -- Helper function to check if an item matches the enabled options
-function DB:ShouldTrackItem(itemID, strict)
-    if not itemID then 
-        return false 
-    end
+function DB:ShouldTrackItem(itemID)
+    if not itemID then return false end
+    
+    -- Get current character's profile name
+    local characterName = UnitName("player")
+    local realmName = GetRealmName()
+    local profileName = characterName .. " - " .. realmName
     
     -- Get item info
-    local _, _, itemRarity, _, _, _, _, _, _, _, _, classID, subclassID = C_Item.GetItemInfo(itemID)
-    if not itemRarity then 
-        return false 
-    end
+    local itemName, _, itemRarity, _, _, _, subType, _, _, _, _, classID, subclassID = C_Item.GetItemInfo(itemID)
+    if not itemName then return false end
+
+    -- Debug output
+    -- NM:Log("=== ShouldTrackItem Debug ===")
+    -- NM:Log(string.format("Checking item: %s (ID: %d)", itemName, itemID))
+    -- NM:Log(string.format("Profile: %s", profileName))
+    -- NM:Log(string.format("ClassID: %d, SubclassID: %d", classID, subclassID))
     
-    -- Get profile settings
-    local profile = NM.db.profile
-    if not profile or not profile.general then 
-        return false 
+    -- Debug der Profile-Struktur
+    if NM.db.profiles[profileName] then
+        -- NM:Log("Profile found")
+        if NM.db.profiles[profileName].scrollFrame then
+            -- NM:Log("ScrollFrame settings found:")
+            for k, v in pairs(NM.db.profiles[profileName].scrollFrame) do
+                -- NM:Log(string.format("  %s = %s", k, tostring(v)))
+            end
+        else
+            -- NM:Log("No scrollFrame settings found!")
+        end
+    else
+        -- NM:Log("Profile not found!")
+        return false
     end
 
-    -- Waffen oder Rüstung
-    if classID == Enum.ItemClass.Weapon or classID == Enum.ItemClass.Armor then
-        -- Korrigierte Qualitätszuordnung
-        if profile.general["poor"] and itemRarity == 0 then
-            return true
-        elseif profile.general["common"] and itemRarity == 1 then
-            return true
-        elseif profile.general["uncommon"] and itemRarity == 2 then
-            return true
-        elseif profile.general["rare"] and itemRarity == 3 then
-            return true
-        elseif profile.general["epic"] and itemRarity == 4 then
-            return true
-        elseif profile.general["legendary"] and itemRarity == 5 then
-            return true
+    -- Handelswaren
+    if classID == 7 then
+        -- NM:Log("Item is Trade Good")
+        if NM.db.profiles[profileName] and NM.db.profiles[profileName].scrollFrame then
+            local settings = NM.db.profiles[profileName].scrollFrame
+            
+            -- Mapping von SubclassID zu Setting-Namen
+            local subclassMap = {
+                [1] = "parts",           -- Teile
+                [2] = "explosives",      -- Sprengstoff
+                [3] = "devices",         -- Geräte
+                [4] = "jewelcrafting",   -- Juwelenschleifen
+                [5] = "cloth",           -- Stoff
+                [6] = "leather",         -- Leder
+                [7] = "metalStone",      -- Erze & Steine
+                [8] = "cooking",         -- Kochkunst
+                [9] = "herb",            -- Kräuter
+                [10] = "elemental",      -- Elementar
+                [11] = "enchanting",     -- Verzauberkunst
+                [12] = "inscription",    -- Inschriftenkunde
+                [13] = "other"          -- Sonstiges
+            }
+            
+            local settingName = subclassMap[subclassID]
+            if settingName then
+                local isEnabled = settings[settingName]
+                -- NM:Log(string.format("Item is %s, setting: %s", settingName, tostring(isEnabled)))
+                return isEnabled
+            else
+                -- NM:Log(string.format("Unknown subclass ID: %d", subclassID))
+            end
+        else
+            -- NM:Log("No scrollFrame settings found")
         end
-        
-        return false
+    else
+        -- NM:Log("Item is not a Trade Good")
     end
-    
-    -- Rest der Funktion für andere Item-Typen...
-    if strict then
-        return false
-    end
-    
-    return true
+
+    -- NM:Log("Returning false by default")
+    return false
 end
 
 -- Helper functions to get category keys
@@ -871,3 +1002,33 @@ function DB:GetRarityKey(itemRarity)
 end
 
 -- Weitere Helper-Funktionen für die verschiedenen Kategorien...
+
+function DB:UpdateOutput(text)
+    if not self.itemsLooted then return text or "" end
+    
+    local outputText = text or ""
+    local trackedItems = {}
+    
+    -- Sammle alle getrackte Items
+    for itemID, count in pairs(self.itemsLooted) do
+        if NM.DB:ShouldTrackItem(itemID) then
+            local itemName, _, itemRarity = C_Item.GetItemInfo(itemID)
+            NM:Log("Item is tracked" .. itemName)
+            if itemName then
+                local _, _, _, hexColor = C_Item.GetItemQualityColor(itemRarity)
+                local itemText = string.format("%dx %s%s|r", count, hexColor, itemName)
+                table.insert(trackedItems, itemText)
+            end
+        end
+    end
+    
+    -- Füge Items zum Output hinzu
+    if #trackedItems > 0 then
+        if outputText ~= "" then
+            outputText = outputText .. "\n"
+        end
+        outputText = outputText .. table.concat(trackedItems, ", ")
+    end
+    
+    return outputText
+end

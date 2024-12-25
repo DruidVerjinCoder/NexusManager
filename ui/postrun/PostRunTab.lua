@@ -175,40 +175,4 @@ function PostRunTab:SetupSessionButtonCallbacks(button)
     end)
 end
 
-function PostRunTab:UpdateOutput(text)
-    if not NM.ui.postrun or not NM.ui.postrun.output then return end
-    
-    local annotations = {}
-    local outputText = text or ""
-    local itemTexts = {}
-    
-    -- Check if we have looted items in the session
-    if NM.session and NM.session.itemsLooted then
-        -- Process each looted item
-        for itemID, count in pairs(NM.session.itemsLooted) do
-            -- Prüfe ob das Item getrackt werden soll basierend auf den Optionen
-            if NM.DB:ShouldTrackItem(itemID, true) then
-                local itemName, _, itemRarity = C_Item.GetItemInfo(itemID)
-                if itemName then
-                    local _, _, _, hexColor = C_Item.GetItemQualityColor(itemRarity)
-                    table.insert(itemTexts, string.format("%dx %s%s|r", count, hexColor, itemName))
-                end
-            end
-        end
-        
-        -- Füge Items nur hinzu wenn welche getrackt wurden
-        if #itemTexts > 0 then
-            table.insert(annotations, "\n\nTracked Items:")
-            table.insert(annotations, table.concat(itemTexts, ", "))
-        end
-    end
-    
-    -- Combine original text with annotations
-    if #annotations > 0 then
-        outputText = outputText .. table.concat(annotations, "\n")
-    end
-    
-    NM.ui.postrun.output:SetText(outputText)
-end
-
 NM.postrun = PostRunTab
