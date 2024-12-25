@@ -93,6 +93,24 @@ function ChallengeTab:Create()
     participantsScroll:SetHeight(150)
     participantsContainer:AddChild(participantsScroll)
     
+    -- Timer Container
+    local timerContainer = AceGUI:Create("SimpleGroup")
+    timerContainer:SetLayout("Flow")
+    timerContainer:SetFullWidth(true)
+    timerContainer:SetHeight(30)
+    scrollContainer:AddChild(timerContainer)
+
+    -- Timer Label
+    local timerLabel = AceGUI:Create("Label")
+    timerLabel:SetText("00:00:00")
+    timerLabel:SetWidth(200)
+    timerLabel:SetFont("Fonts\\FRIZQT__.TTF", 20, "OUTLINE")
+    timerContainer:AddChild(timerLabel)
+
+    -- Speichere Timer-Referenz
+    self.timerLabel = timerLabel
+    self.timerTicker = nil
+    
     -- Challenge Control Buttons nebeneinander
     -- Start Button zuerst erstellen
     local startButton = AceGUI:Create("Button")
@@ -129,6 +147,9 @@ function ChallengeTab:Create()
         
         -- Aktualisiere die Teilnehmerliste
         container:UpdateParticipants(NM.Challenge.participants, NM.Challenge.results)
+        
+        -- Starte Timer
+        ChallengeTab:StartTimer(NM.Challenge.duration)
         
         -- Starte regelmäßige Updates
         if not NM.Challenge.updateTimer then
@@ -984,6 +1005,62 @@ function ChallengeTab:UpdateKeyDisplay(key)
         if self.copyButton then
             self.copyButton:SetDisabled(false)
         end
+    end
+end
+
+function ChallengeTab:StartTimer(duration)
+    if not duration then return end
+    if self.timerTicker then
+        self.timerTicker:Cancel()
+    end
+
+    local endTime = GetTime() + duration
+    
+    -- Initialer Timer-Update
+    local remaining = endTime - GetTime()
+    local hours = math.floor(remaining / 3600)
+    local minutes = math.floor((remaining % 3600) / 60)
+    local seconds = math.floor(remaining % 60)
+    self.timerLabel:SetText(string.format("%02d:%02d:%02d", hours, minutes, seconds))
+    
+    self.timerTicker = C_Timer.NewTicker(1, function()
+        local remaining = endTime - GetTime()
+        
+        if remaining <= 0 then
+            -- Timer ist abgelaufen
+            self.timerTicker:Cancel()
+            self.timerTicker = nil
+            self.timerLabel:SetText("00:00:00")
+            
+            -- Sende Broadcast für Challenge Ende mit leeren Daten
+            if NM.Challenge then
+                NM.Challenge:BroadcastMessage("CHALLENGE_END", {})
+            end
+        else
+            -- Aktualisiere Timer-Anzeige
+            local hours = math.floor(remaining / 3600)
+            local minutes = math.floor((remaining % 3600) / 60)
+            local seconds = math.floor(remaining % 60)
+            
+            self.timerLabel:SetText(string.format("%02d:%02d:%02d", hours, minutes, seconds))
+        end
+    end)
+end
+
+function ChallengeTab:StopTimer()
+    if self.timerTicker then
+        self.timerTicker:Cancel()
+        self.timerTicker = nil
+    end
+    self.timerLabel:SetText("00:00:00")
+end
+
+-- Füge eine Funktion hinzu, um den Timer-Status zu synchronisieren
+function ChallengeTab:SyncTimer(remainingTime)
+    if remainingTime and remainingTime > 0 then
+        self:StartTimer(remainingTime)
+    else
+        self:StopTimer()
     end
 end
 
