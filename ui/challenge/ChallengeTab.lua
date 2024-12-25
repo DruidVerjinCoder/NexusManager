@@ -146,8 +146,11 @@ function ChallengeTab:Create()
             NM.Challenge.duration = minutes * 60 -- Konvertiere zu Sekunden
         end
 
-        -- Starte die Challenge
-        NM.Challenge:Start(NM.Challenge.participants)
+        -- Starte die Challenge mit Timer-Informationen
+        NM.Challenge:Start(NM.Challenge.participants, {
+            duration = NM.Challenge.duration,
+            startTime = GetTime()
+        })
         
         -- Update UI Status auf "running"
         container:UpdateUIState("running", true)
@@ -155,11 +158,16 @@ function ChallengeTab:Create()
         -- Aktualisiere die Teilnehmerliste
         container:UpdateParticipants(NM.Challenge.participants, NM.Challenge.results)
         
-        -- Debug print
-        print("Starting timer with duration:", NM.Challenge.duration, "seconds")
-        
-        -- Starte Timer
+        -- Starte lokalen Timer
         ChallengeTab:StartTimer(NM.Challenge.duration)
+        
+        -- Sende Timer-Start an alle Teilnehmer
+        if NM.Challenge then
+            NM.Challenge:BroadcastMessage("CHALLENGE_TIMER_START", {
+                duration = NM.Challenge.duration,
+                startTime = GetTime()
+            })
+        end
         
         -- Starte regelmäßige Updates
         if not NM.Challenge.updateTimer then
@@ -1068,6 +1076,31 @@ end
 -- Füge eine Funktion hinzu, um den Timer-Status zu synchronisieren
 function ChallengeTab:SyncTimer(remainingTime)
     if remainingTime and remainingTime > 0 then
+        self:StartTimer(remainingTime)
+    else
+        self:StopTimer()
+    end
+end
+
+-- Füge diese neue Funktion hinzu:
+function ChallengeTab:HandleChallengeStart(data)
+    if not data or not data.duration then 
+        print("HandleChallengeStart: Keine gültigen Timer-Daten")
+        return 
+    end
+    
+    print("HandleChallengeStart:")
+    print("Duration:", data.duration)
+    print("StartTime:", data.startTime)
+    
+    -- Berechne die verbleibende Zeit basierend auf der Startzeit
+    local elapsed = GetTime() - data.startTime
+    local remainingTime = data.duration - elapsed
+    
+    print("Remaining Time:", remainingTime)
+    
+    -- Starte den Timer nur, wenn noch Zeit übrig ist
+    if remainingTime > 0 then
         self:StartTimer(remainingTime)
     else
         self:StopTimer()

@@ -178,7 +178,7 @@ function Challenge:Decline()
     NM:Print(L["You declined the challenge"])
 end
 
-function Challenge:Start()
+function Challenge:Start(participants, timerData)
     -- Prüfe ob es überhaupt akzeptierte Teilnehmer gibt
     local hasAcceptedParticipants = false
     for _, participant in pairs(self.participants) do
@@ -231,10 +231,11 @@ function Challenge:Start()
     -- end
     
     -- Broadcast den Start
-    self:BroadcastMessage("START", {
-        startTime = self.startTime,
-        endTime = self.endTime,
-        participants = self.participants
+    self:BroadcastMessage("CHALLENGE_START", {
+        participants = participants,
+        results = self.results,
+        duration = timerData.duration,
+        startTime = timerData.startTime
     })
     
     -- Debug print
@@ -332,36 +333,9 @@ function Challenge:HandleMessage(sender, message)
     if not success then 
         return 
     end
-    NM:Print(data.type)
-    if data.type == "LIVE_UPDATE" then
-        -- Log nur die deserialisierten Daten
-        if self.state == "running" then
-            local player = data.data.player
-            local liv = data.data.liv or 0
-            
-            -- Debug nur für wichtige Änderungen
-            
-            -- Aktualisiere direkt die Teilnehmerdaten und Ergebnisse
-            if self.participants[player] then
-                self.participants[player].liv = liv
-                self.results[player] = {
-                    liv = liv,
-                    items = data.data.items or {},
-                    totalGold = data.data.totalGold or 0,
-                    lootedGold = data.data.lootedGold or 0,
-                    originalLiv = liv  -- Speichere den Original-Wert
-                }
-                
-                -- UI nur einmal aktualisieren
-                if NM.ui and NM.ui.challenge then
-                    NM.ui.challenge:UpdateParticipants(self.participants, self.results)
-                end
-            end
-        end
-    end
+    NM:Print(data.type)  -- Debug print
     
-    
-    if data.type == "START" then
+    if data.type == "CHALLENGE_START" then
         -- Behalte die existierende Teilnehmerliste
         local currentParticipants = self.participants
         
@@ -389,10 +363,49 @@ function Challenge:HandleMessage(sender, message)
         if NM.ui and NM.ui.challenge then
             NM.ui.challenge:UpdateParticipants(self.participants)
             NM.ui.challenge:UpdateUIState("running", UnitName("player") == self.leader)
+            NM.ChallengeTab:StartTimer(self.duration)
+            -- Starte den Timer für die Teilnehmer
+            NM.ui.challenge:HandleChallengeStart({
+                duration = self.duration,
+                startTime = self.startTime
+            })
         end
         
         NM:Print(L["Challenge started!"])
     end
+
+    if data.type == "CHALLENGE_END" then
+        NM.session:pause()
+        NM:Print(L["Challenge ended!"])
+    end
+    
+    if data.type == "LIVE_UPDATE" then
+        -- Log nur die deserialisierten Daten
+        if self.state == "running" then
+            local player = data.data.player
+            local liv = data.data.liv or 0
+            
+            -- Debug nur für wichtige Änderungen
+            
+            -- Aktualisiere direkt die Teilnehmerdaten und Ergebnisse
+            if self.participants[player] then
+                self.participants[player].liv = liv
+                self.results[player] = {
+                    liv = liv,
+                    items = data.data.items or {},
+                    totalGold = data.data.totalGold or 0,
+                    lootedGold = data.data.lootedGold or 0,
+                    originalLiv = liv  -- Speichere den Original-Wert
+                }
+                
+                -- UI nur einmal aktualisieren
+                if NM.ui and NM.ui.challenge then
+                    NM.ui.challenge:UpdateParticipants(self.participants, self.results)
+                end
+            end
+        end
+    end
+    
     
     if data.type == "INVITE" then
         self.state = "pending"
