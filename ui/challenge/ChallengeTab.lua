@@ -74,7 +74,17 @@ function ChallengeTab:Create()
             NM.session.state = "running"
         end
 
+        -- Setze Challenge-Status auf "running"
+        NM.Challenge.state = "running"
+
+        -- Starte die Challenge
         NM.Challenge:Start(NM.Challenge.participants)
+        
+        -- Update UI Status auf "running"
+        container:UpdateUIState("running", true)
+        
+        -- Aktualisiere die Teilnehmerliste
+        container:UpdateParticipants(NM.Challenge.participants, NM.Challenge.results)
     end)
     buttonContainer:AddChild(startButton)
     
@@ -226,7 +236,7 @@ function ChallengeTab:Create()
             
             -- Start Button ist aktiv für Leader/Host
             if isHost then
-                startButton:SetDisabled(false)  -- Aktiviert für den Host während "inviting"
+                startButton:SetDisabled(false)
             else
                 startButton:SetDisabled(true)
             end
@@ -240,7 +250,12 @@ function ChallengeTab:Create()
             -- Alle Buttons deaktivieren im "running" Status
             durationDropdown:SetDisabled(true)
             inviteButton:SetDisabled(true)
-            startButton:SetDisabled(true)  -- Start Button immer deaktiviert während des Laufs
+            startButton:SetDisabled(true)
+            
+            -- Aktualisiere auch den Challenge-Status
+            if NM.Challenge then
+                NM.Challenge.state = "running"
+            end
             
         else
             -- Kein aktiver Challenge-Status

@@ -158,6 +158,11 @@ function Challenge:Start()
         player = UnitName("player"),
     })
 
+    self:BroadcastMessage("CHALLENGE_START", {
+        participants = #self.participants,
+        state = self.state
+    })
+
     if self.state ~= "inviting" then
         return
     end
