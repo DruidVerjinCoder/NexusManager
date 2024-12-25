@@ -364,11 +364,6 @@ function Challenge:HandleMessage(sender, message)
             NM.ui.challenge:UpdateParticipants(self.participants)
             NM.ui.challenge:UpdateUIState("running", UnitName("player") == self.leader)
             NM.ChallengeTab:StartTimer(self.duration)
-            -- Starte den Timer für die Teilnehmer
-            NM.ui.challenge:HandleChallengeStart({
-                duration = self.duration,
-                startTime = self.startTime
-            })
         end
         
         NM:Print(L["Challenge started!"])
