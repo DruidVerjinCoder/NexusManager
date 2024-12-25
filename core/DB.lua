@@ -1005,31 +1005,28 @@ end
 
 function DB:UpdateOutput()
     if not NM.session or not NM.session.itemsLooted then 
-        return "" 
+        return string.format("\n%s-", L["Annotation: "])
     end
-    -- NM:Log("Generating output. Session items count: " .. (#NM.session.items))
+    
     local trackedItems = {}
     
     -- Sammle alle getrackte Items
-    for itemID, itemData in pairs(NM.session.items) do
-        local itemName, _, itemRarity = C_Item.GetItemInfo(itemID)
+    for itemID, count in pairs(NM.session.itemsLooted) do
         if self:ShouldTrackItem(itemID) then
+            local itemName, _, itemRarity = C_Item.GetItemInfo(itemID)
             if itemName then
                 local _, _, _, hexColor = C_Item.GetItemQualityColor(itemRarity)
-                local itemText = string.format("%dx %s%s|r", itemData.quantity, hexColor, itemName)
+                local itemText = string.format("%dx |c%s%s|r", count, hexColor, itemName)
                 table.insert(trackedItems, itemText)
             end
-        else 
-            -- NM:Log("Item is not tracked" .. itemName)
         end
     end
     
     -- Füge Items zum Output hinzu
     if #trackedItems > 0 then
-        local output = table.concat(trackedItems, ", ")
-        -- NM:Log("Output: " .. output)
-        return output
+        return string.format("\n%s%s", L["Annotation: "], table.concat(trackedItems, ", "))
     end
     
-    return ""
+    -- Wenn keine Items getrackt wurden
+    return string.format("\n%s-", L["Annotation: "])
 end

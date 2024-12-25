@@ -179,7 +179,7 @@ function session:GetPostrunMsg()
       return L["LA not running or paused. Please start or resume the session."]
    end
    
-   local msg = string.format("!postrun %s\n%s%s\n%s%s\n%s%s\n%s%d\n%s%d\n%s%d\n%s%s\n%s%s\n%s",
+   local msg = string.format("!postrun %s\n%s%s\n%s%s\n%s%s\n%s%d\n%s%d\n%s%d\n%s%s\n%s%s%s",
       self.farmName or "",
       L["Class: "], L[self.class],
       L["Duration: "], self:GetDurationString(),
@@ -189,9 +189,9 @@ function session:GetPostrunMsg()
       L["Epic: "], self.epic,
       L["Gold looted: "], self:FormatGold(self.lootedGold),
       L["Gold total: "], self:FormatGold(self.totalGold),
-      L["Annotations: "], NM.DB:UpdateOutput()
+      NM.DB:UpdateOutput()
    )
-   return msg .. NM.DB:UpdateOutput()
+   return msg
 end
 
 function session:zoneSwitched()
