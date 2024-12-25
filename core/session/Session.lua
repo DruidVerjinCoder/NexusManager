@@ -38,6 +38,7 @@ function session:reset()
    self.state = nil
    self.pauseTime = nil
    self.totalPauseTime = 0
+   self.liv = 0
    
    -- Instance handling
    if IsInInstance() then
