@@ -26,6 +26,7 @@ function session:init()
 end
 
 function session:reset()
+   NM:Log("SYSTEM", "Session reset")
    self.start = time()
    self.currentGold = GetMoney()
    self.totalGold = 0
@@ -67,7 +68,6 @@ function session:continue()
    
    self.pauseTime = nil
    self.state = "running"
-   NM:Print(L["Session was continued"])
 end
 
 function session:GetDurationString()
@@ -84,11 +84,11 @@ function session:pause()
    
    self.pauseTime = time()
    self.state = "paused"
-   NM:Print(L["Session was paused"])
 end
 
 -- Item Handling
 function session:itemLooted(event, message)
+   NM:Log("SESSION", "Item looted: " .. message)
    local itemLink, quantity = self:parseItemLoot(message)
    if not itemLink then return end
    
@@ -148,13 +148,11 @@ end
 function session:start()
    self:init()
    self.state = 'running'
-   NM:Print(L["Session was started"])
 end
 
 function session:restart()
    self:init()
    self.state = 'running'
-   NM:Print(L["Session was restarted"])
 end
 
 -- Utility Functions

@@ -30,13 +30,20 @@ function Minimap:OnInitialize()
         type = "launcher",
         icon = "Interface\\Icons\\inv_misc_bag_10",
         OnClick = function(_, button)
-            if button == "LeftButton" then
+            if IsControlKeyDown() then
+                -- Öffne LogFrame
+                if button == "LeftButton" then
+                    NM.LogFrame:Show()
+                end
+            else
+                if button == "LeftButton" then
                 -- Toggle main window
-                NM:OpenNexusManager(nil)
+                    NM:OpenNexusManager(nil)
             elseif button == "RightButton" then
                 -- Open options
                 Settings.OpenToCategory("NexusManager")
             end
+        end
         end,
         OnTooltipShow = function(tooltip)
             tooltip:AddLine("NexusManager")

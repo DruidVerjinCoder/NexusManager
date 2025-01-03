@@ -49,7 +49,7 @@ function ChallengeTab:Create()
         -- Prüfe ob eine Challenge mit Teilnehmern existiert
         if NM.Challenge and NM.Challenge.participants and next(NM.Challenge.participants) then
             -- Sende Cancel-Nachricht an alle Teilnehmer
-            NM.Challenge:BroadcastMessage("CANCEL_CHALLENGE", {
+            NM.Challenge:BroadcastMessage("CHALLENGE_END", {
                 message = L["Host has cancelled the challenge"],
                 key = NM.Challenge.key  -- Sende den Key mit
             })
@@ -1035,7 +1035,6 @@ end
 -- Neue Funktion zum Aktualisieren der Key-Anzeige
 function ChallengeTab:UpdateKeyDisplay(key)
     if key and self.keyBox then
-        print("Updating key display with:", key) -- Debug print
         self.keyBox:SetText(key)
         
         if self.copyButton then
@@ -1103,19 +1102,13 @@ end
 -- Füge diese neue Funktion hinzu:
 function ChallengeTab:HandleChallengeStart(data)
     if not data or not data.duration then 
-        print("HandleChallengeStart: Keine gültigen Timer-Daten")
         return 
     end
-    
-    print("HandleChallengeStart:")
-    print("Duration:", data.duration)
-    print("StartTime:", data.startTime)
     
     -- Berechne die verbleibende Zeit basierend auf der Startzeit
     local elapsed = GetTime() - data.startTime
     local remainingTime = data.duration - elapsed
     
-    print("Remaining Time:", remainingTime)
     
     -- Starte den Timer nur, wenn noch Zeit übrig ist
     if remainingTime > 0 then

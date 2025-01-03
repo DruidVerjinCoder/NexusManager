@@ -27,14 +27,6 @@ function Challenge:GenerateKey()
     return key
 end
 
--- Optional: Füge eine Debug-Funktion hinzu
-function Challenge:PrintDebugInfo()
-    print("Challenge Debug Info:")
-    print("Key:", self.key or "kein Key")
-    print("State:", self.state or "kein State")
-    print("Leader:", self.leader or "kein Leader")
-end
-
 function Challenge:SendInvites()
     if self.state then 
         return 
@@ -47,7 +39,7 @@ function Challenge:SendInvites()
     
     -- Generiere den Challenge Key beim Senden der Einladungen
     self.key = self:GenerateKey()
-    print("Challenge Key generiert:", self.key) -- Debug print
+    NM:Log("CHALLENGE", "Challenge Key generiert:", {key = self.key})
     
     -- Aktualisiere das UI mit dem neuen Key
     if NM.ChallengeTab then
@@ -72,12 +64,14 @@ function Challenge:SendInvites()
            accountInfo.gameAccountInfo.characterName ~= self.leader then
             
             local playerName = accountInfo.gameAccountInfo.characterName
-            self.pendingInvites[playerName] = true
-            self.participants[playerName] = {
-                accepted = false,
-                declined = false,
-                online = true
-            }
+            if playerName then 
+                self.pendingInvites[playerName] = true
+                self.participants[playerName] = {
+                    accepted = false,
+                    declined = false,
+                    online = true
+                }
+            end
             
             self:BroadcastMessage("INVITE", {
                 key = self.key,
@@ -90,9 +84,9 @@ function Challenge:SendInvites()
     end
     
     if invitedCount > 0 then
-        NM:Print(string.format(L["Challenge invitations sent to %d players"], invitedCount))
+        NM:Log("CHALLENGE", "Challenge invitations sent to " .. invitedCount .. " players", {invitedCount = invitedCount})
     else
-        NM:Print(L["No online WoW friends found to invite"])
+        NM:Log("CHALLENGE", "No online WoW friends found to invite", {invitedCount = invitedCount})
         self:Reset()
     end
     
@@ -101,9 +95,6 @@ function Challenge:SendInvites()
         NM.ui.challenge:UpdateParticipants(self.participants)
         NM.ui.challenge:UpdateUIState("inviting", true)
     end
-    
-    -- Debug print
-    self:PrintDebugInfo()
 end
 
 function Challenge:Reset()
@@ -119,6 +110,7 @@ function Challenge:Reset()
     if NM.ui.challenge then
         NM.ui.challenge:UpdateParticipants(self.participants)
         NM.ui.challenge:UpdateResults(self.results)
+        NM.ui.challenge:UpdateUIState("initial", false)
     end
 end
 
@@ -156,7 +148,7 @@ function Challenge:Accept()
         end)
     end
     
-    NM:Print(L["You accepted the challenge"])
+    NM:Log("CHALLENGE", "You accepted the challenge", {player = UnitName("player")})
 end
 
 function Challenge:Decline()
@@ -176,7 +168,7 @@ function Challenge:Decline()
         NM.ui.challenge:UpdateParticipants(self.participants)
     end
     
-    NM:Print(L["You declined the challenge"])
+    NM:Log("CHALLENGE", "You declined the challenge", {player = UnitName("player")})
 end
 
 function Challenge:Start(participants, timerData)
@@ -190,7 +182,7 @@ function Challenge:Start(participants, timerData)
     end
     
     if not hasAcceptedParticipants then
-        print(L["No participants have accepted the challenge"])
+        NM:Log("CHALLENGE", "No participants have accepted the challenge", {})
         return
     end
     
@@ -202,9 +194,9 @@ function Challenge:Start(participants, timerData)
         end
     end
 
-    print("acceptedParticipants:")
+    NM:Log("CHALLENGE", "acceptedParticipants:", {acceptedParticipants = acceptedParticipants})
     for name, participant in pairs(acceptedParticipants) do
-        print("- " .. name)
+        NM:Log("CHALLENGE", "- " .. name, {name = name})
     end
     
     -- Ersetze die alte Teilnehmerliste mit der bereinigten Liste
@@ -238,12 +230,6 @@ function Challenge:Start(participants, timerData)
         duration = timerData.duration,
         startTime = timerData.startTime
     })
-    
-    -- Debug print
-    print("Aktive Teilnehmer nach Start:")
-    for name, _ in pairs(self.participants) do
-        print("- " .. name)
-    end
 end
 
 function Challenge:Stop()
@@ -280,7 +266,6 @@ function Challenge:AddResult(player, results)
 end
 
 function Challenge:BroadcastMessage(type, data, specificID)
-    -- Füge den Key zu den Daten hinzu
     if type ~= "INVITE" then -- Bei Einladungen noch keinen Key mitschicken
         data.key = self.key
     end
@@ -327,6 +312,7 @@ function Challenge:BroadcastMessage(type, data, specificID)
         end
     end
     
+    NM:Log("CHALLENGE", "BroadcastMessage: " .. type, {data = data, specificID = specificID})
 end
 
 function Challenge:HandleMessage(sender, message)
@@ -336,9 +322,6 @@ function Challenge:HandleMessage(sender, message)
     if data.type == "CANCEL_CHALLENGE" then
         -- Prüfe ob der Key übereinstimmt
         if data.data.key and data.data.key == self.key then
-            if data.data.message then
-                NM:Print(data.data.message)
-            end
             self:Reset()
             -- UI auf initialen Status zurücksetzen
             if NM.ui and NM.ui.challenge then
@@ -381,7 +364,7 @@ function Challenge:HandleMessage(sender, message)
             NM.ChallengeTab:StartTimer(self.duration)
         end
         
-        NM:Print(L["Challenge started!"])
+        NM:Log("CHALLENGE", "Challenge started!", {player = UnitName("player")})
     elseif data.type == "CHALLENGE_END" then
         -- Stoppe die Session zum exakt gleichen Zeitpunkt
         if NM.session then
@@ -485,7 +468,7 @@ function Challenge:HandleMessage(sender, message)
             end
             
             if self.leader == UnitName("player") then
-                NM:Print(string.format(L["%s declined the challenge"], data.data.player))
+                NM:Log("CHALLENGE", string.format(L["%s declined the challenge"], data.data.player), {player = data.data.player})
             end
         end
         return
@@ -531,17 +514,14 @@ function Challenge:HandleMessage(sender, message)
                 NM.ui.challenge:UpdateParticipants(self.participants, self.results)
                 NM.ui.challenge:UpdateUIState(self.state, UnitName("player") == self.leader)
             end
-            
-            NM:Print(L["Joined ongoing challenge"])
+            NM:Log("CHALLENGE", "Joined ongoing challenge", {player = UnitName("player")})
         else
-            NM:Print(L["Already in a running challenge"])
+            NM:Log("CHALLENGE", "Already in a running challenge", {player = UnitName("player")})
         end
     end
     
     if data.type == "JOIN_REQUEST" then
         -- Wenn wir der Host sind und der Key stimmt
-        -- NM:Print("JOIN_REQUEST started with key " .. data.data.key)
-        -- NM:Print("Compare key " .. data.data.key .. " with " .. self.key)
         if self.participants[UnitName("player")].isHost and data.data.ckey == self.key then
             -- Füge den Spieler hinzu
             self.participants[data.data.player] = {
@@ -559,25 +539,7 @@ function Challenge:HandleMessage(sender, message)
 end
 
 function Challenge:ShowFinalResults()
-    local totalLiv = 0
-    local winner = nil
-    local maxLiv = 0
-    
-    -- Berechne Gesamtwerte und finde den Gewinner
-    for player, result in pairs(self.results) do
-        totalLiv = totalLiv + (result.originalLiv or 0)
-        if result.originalLiv > maxLiv then
-            maxLiv = result.originalLiv
-            winner = player
-        end
-    end
-    
-    -- Zeige Zusammenfassung
-    NM:Print("Challenge beendet!")
-    NM:Print(string.format(L["Total LIV: %s"], NM.session:FormatGold(totalLiv)))
-    if winner then
-        NM:Print(string.format(L["Winner: %s with %s LIV"], winner, NM.session:FormatGold(maxLiv)))
-    end
+    NM:Log("CHALLENGE", "Challenge beendet!", {player = UnitName("player")})
 end
 
 NM.Challenge = Challenge 
@@ -689,20 +651,23 @@ function Challenge:SendLiveUpdate(player, livData)
 end
 
 function Challenge:JoinWithKey(inputKey)
-    NM:Print("JoinWithKey started with key " .. inputKey)
+    NM:Log("CHALLENGE", "JoinWithKey started with key " .. inputKey, {player = UnitName("player")})
     
     -- Hole eigene Account Info
-    local accountInfo = C_BattleNet.GetAccountInfoByGUID(UnitGUID("player"))
-    local gameAccountID = accountInfo and accountInfo.gameAccountInfo and accountInfo.gameAccountInfo.gameAccountID
-    
-    -- Sende Join-Request mit Account Info
-    local message = {
-        ckey = inputKey,
-        player = UnitName("player"),
-        accountID = gameAccountID  -- Füge Game Account ID hinzu
-    }
-    
-    self:BroadcastMessage("JOIN_REQUEST", message)
+    local playerName = UnitGUID("player")
+    if playerName ~= nil then
+        local accountInfo = C_BattleNet.GetAccountInfoByGUID(playerName)
+        local gameAccountID = accountInfo and accountInfo.gameAccountInfo and accountInfo.gameAccountInfo.gameAccountID
+        
+        -- Sende Join-Request mit Account Info
+        local message = {
+            ckey = inputKey,
+            player = UnitName("player"),
+            accountID = gameAccountID  -- Füge Game Account ID hinzu
+        }
+
+        self:BroadcastMessage("JOIN_REQUEST", message)
+    end
 end
 
 -- Neue Hilfsfunktion
@@ -716,7 +681,7 @@ function Challenge:SendChallengeDataTo(player)
         endTime = self.endTime,
         results = self.results
     }
-    NM:Print("Sende Challenge-Daten an " .. player)
+    NM:Log("CHALLENGE", "Sende Challenge-Daten an " .. player, {player = player})
     self:BroadcastMessage("CHALLENGE_DATA", challengeData)
     
     -- Informiere alle Teilnehmer über den neuen Spieler

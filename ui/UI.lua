@@ -20,17 +20,16 @@ NM.ui = {
 
 function NM:DeleteTodo(todoKey)
     if not todoKey then
-        NM:Log("Error: No todo key provided for deletion")
         return false
     end
 
     local success = NM.DB:DeleteTodo(todoKey)
     
     if success then
-        NM:Print(L["Todo deleted"])
+        NM:Log("SYSTEM", "Todo deleted", {todoKey = todoKey})
         self:reloadScrollFrameTable()
     else
-        NM:Print(L["Failed to delete todo"])
+        NM:Log("SYSTEM", "Failed to delete todo", {todoKey = todoKey})
     end
     
     return success
@@ -147,10 +146,10 @@ function NM:reloadScrollFrameTable()
                     preferredIndex = 3,
                     OnAccept = function()
                         if NM.DB:DeleteTodo(todo.key, todo.type, todo.assignment) then
-                            NM:Print(L["Todo deleted"])
+                            NM:Log("SYSTEM", "Todo deleted", {todoKey = todo.key})
                             NM:reloadScrollFrameTable()
                         else
-                            NM:Print(L["Failed to delete todo"])
+                            NM:Log("SYSTEM", "Failed to delete todo", {todoKey = todo.key})
                         end
                     end,
                 }
@@ -158,10 +157,10 @@ function NM:reloadScrollFrameTable()
             else
                 -- Direct deletion for character todos
                 if NM.DB:DeleteTodo(todo.key, todo.type, todo.assignment) then
-                    NM:Print(L["Todo deleted"])
+                    NM:Log("SYSTEM", "Todo deleted", {todoKey = todo.key})
                     NM:reloadScrollFrameTable()
                 else
-                    NM:Print(L["Failed to delete todo"])
+                    NM:Log("SYSTEM", "Failed to delete todo", {todoKey = todo.key})
                 end
             end
         end)
@@ -284,7 +283,6 @@ function NM:CreateMainFrame(tabIndex)
         local tabContainers = {}
 
         for i = 1, #tabNames do
-            print("Create Container for " .. tabNames[i])
             local tabContainer = AceGUI:Create("SimpleGroup")
             tabContainer:SetLayout("Fill")
             tabContainer:SetHeight(200);

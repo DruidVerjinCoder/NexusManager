@@ -125,7 +125,7 @@ function PostRunTab:CreateResetInstanceButton()
         L["Reset instance"],
         self.WINDOW_CONFIG.BUTTON_SIZES.INSTANCE,
         function() 
-            print("Reset Instance")
+            NM.session:resetInstance()
         end
     )
 end
