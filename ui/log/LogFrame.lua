@@ -60,19 +60,102 @@ function LogFrame:SortBy(columnKey)
     self:UpdateSortIndicators()
 end
 
+-- Am Anfang der Datei nach den Imports:
+LogFrame.currentFilter = {
+    category = nil,  -- nil bedeutet "Alle"
+    searchText = ""
+}
+
 function LogFrame:Show()
     if self.frame then
         self.frame:Show()
         return
     end
     
-    -- Erstelle das Hauptfenster
     local frame = AceGUI:Create("Frame")
     frame:SetTitle(L["Log Viewer"])
     frame:SetLayout("Flow")
     frame:SetWidth(self.WINDOW_CONFIG.CONTAINER_WIDTH)
     frame:SetHeight(self.WINDOW_CONFIG.CONTAINER_HEIGHT)
     self.frame = frame
+    
+    -- Filter Container
+    local filterContainer = AceGUI:Create("SimpleGroup")
+    filterContainer:SetLayout("Flow")
+    filterContainer:SetFullWidth(true)
+    filterContainer:SetHeight(30)
+    
+    -- Kategorie Filter Dropdown
+    local categoryFilter = AceGUI:Create("Dropdown")
+    categoryFilter:SetLabel(L["Category"])
+    categoryFilter:SetWidth(200)
+    categoryFilter:SetRelativeWidth(0.2)  -- 20% der verfügbaren Breite
+    
+    -- Erstelle Liste aller Kategorien
+    local categories = {
+        [""] = L["All Categories"]
+    }
+    for _, category in pairs(self.CATEGORIES) do
+        categories[category] = category
+    end
+    categoryFilter:SetList(categories)
+    categoryFilter:SetValue(self.currentFilter.category or "")
+    categoryFilter:SetCallback("OnValueChanged", function(_, _, value)
+        self.currentFilter.category = value ~= "" and value or nil
+        self:UpdateLogDisplay()
+    end)
+    filterContainer:AddChild(categoryFilter)
+    
+    -- Spacer zwischen Dropdown und Suchfeld
+    local spacer1 = AceGUI:Create("Label")
+    spacer1:SetWidth(20)
+    filterContainer:AddChild(spacer1)
+    
+    -- Suchfeld
+    local searchBox = AceGUI:Create("EditBox")
+    searchBox:SetLabel(L["Search"])
+    searchBox:SetWidth(300)
+    searchBox:SetRelativeWidth(0.3)  -- 30% der verfügbaren Breite
+    searchBox:SetCallback("OnTextChanged", function(_, _, text)
+        self.currentFilter.searchText = text:lower()
+        self:UpdateLogDisplay()
+    end)
+    filterContainer:AddChild(searchBox)
+    
+    -- Spacer zwischen Suchfeld und Eintragsanzahl
+    local spacer2 = AceGUI:Create("Label")
+    spacer2:SetWidth(20)
+    filterContainer:AddChild(spacer2)
+    
+    -- Anzeige der Eintragsanzahl
+    self.filterInfo = AceGUI:Create("Label")
+    self.filterInfo:SetWidth(150)
+    self.filterInfo:SetRelativeWidth(0.15)  -- 15% der verfügbaren Breite
+    filterContainer:AddChild(self.filterInfo)
+    
+    -- Spacer zwischen Eintragsanzahl und Clear-Button
+    local spacer3 = AceGUI:Create("Label")
+    spacer3:SetWidth(20)
+    filterContainer:AddChild(spacer3)
+    
+    -- Clear Button
+    local clearButton = AceGUI:Create("Button")
+    clearButton:SetText(L["Clear"])
+    clearButton:SetWidth(100)
+    clearButton:SetRelativeWidth(0.1)  -- 10% der verfügbaren Breite
+    clearButton:SetCallback("OnClick", function()
+        NM.logs = {}
+        self:UpdateLogDisplay()
+    end)
+    filterContainer:AddChild(clearButton)
+    
+    frame:AddChild(filterContainer)
+    
+    -- Spacer zwischen Filter-Container und Header
+    local spacerBeforeHeader = AceGUI:Create("SimpleGroup")
+    spacerBeforeHeader:SetFullWidth(true)
+    spacerBeforeHeader:SetHeight(10)
+    frame:AddChild(spacerBeforeHeader)
     
     -- Header Container
     local headerContainer = AceGUI:Create("SimpleGroup")
@@ -119,16 +202,6 @@ function LogFrame:Show()
     self.scrollframe.frame:SetWidth(self.WINDOW_CONFIG.CONTAINER_WIDTH - 20)
     frame:AddChild(self.scrollframe)
     
-    -- Clear Button
-    local clearButton = AceGUI:Create("Button")
-    clearButton:SetText(L["Clear"])
-    clearButton:SetWidth(100)
-    clearButton:SetCallback("OnClick", function()
-        NM.logs = {}
-        self:UpdateLogDisplay()
-    end)
-    frame:AddChild(clearButton)
-    
     self:UpdateLogDisplay()
 end
 
@@ -157,11 +230,25 @@ function LogFrame:UpdateLogDisplay()
     self.scrollframe:ReleaseChildren()
     
     local logsList = {}
+    
+    -- Filtere Logs basierend auf Kategorie und Suchtext
     for _, log in ipairs(NM.logs) do
-        table.insert(logsList, log)
+        local matchesCategory = not self.currentFilter.category or log.category == self.currentFilter.category
+        local matchesSearch = self.currentFilter.searchText == "" or 
+                            log.message:lower():find(self.currentFilter.searchText, 1, true) or
+                            FormatMetadata(log.metadata):lower():find(self.currentFilter.searchText, 1, true)
+        
+        if matchesCategory and matchesSearch then
+            table.insert(logsList, log)
+        end
     end
     
-    -- Sortiere die Liste
+    -- Update Anzahl der Einträge im Filter-Info Label
+    if self.filterInfo then
+        self.filterInfo:SetText(string.format(L["Showing %d entries"], #logsList))
+    end
+    
+    -- Sortiere gefilterte Liste
     if self.currentSort then
         table.sort(logsList, function(a, b)
             local aValue, bValue
@@ -176,8 +263,8 @@ function LogFrame:UpdateLogDisplay()
                 aValue = a.message
                 bValue = b.message
             elseif self.currentSort.column == "DATA" then
-                aValue = NM.Utils:TableToString(a.metadata)
-                bValue = NM.Utils:TableToString(b.metadata)
+                aValue = FormatMetadata(a.metadata)
+                bValue = FormatMetadata(b.metadata)
             end
             
             if self.currentSort.ascending then
@@ -188,7 +275,7 @@ function LogFrame:UpdateLogDisplay()
         end)
     end
     
-    -- Zeige sortierte Logs an
+    -- Zeige gefilterte und sortierte Logs
     for _, log in ipairs(logsList) do
         local row = AceGUI:Create("SimpleGroup")
         row:SetLayout("Flow")
@@ -284,6 +371,15 @@ function LogFrame:AddLog(category, message, metadata)
     table.insert(NM.logs, logEntry)
     
     if self.frame and self.scrollframe then
+        self:UpdateLogDisplay()
+    end
+end
+
+-- Optional: Methode zum Zurücksetzen der Filter
+function LogFrame:ResetFilters()
+    self.currentFilter.category = nil
+    self.currentFilter.searchText = ""
+    if self.frame then
         self:UpdateLogDisplay()
     end
 end
