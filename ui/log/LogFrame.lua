@@ -10,16 +10,16 @@ NM.logs = NM.logs or {}
 
 -- Log Kategorien und Window Config
 LogFrame.CATEGORIES = {
-    CHALLENGE = "Challenge",
-    SESSION = "Session",
-    SYSTEM = "System",
-    ERROR = "Error",
-    DEBUG = "Debug"
+    CHALLENGE = "CHALLENGE",
+    SESSION = "SESSION",
+    SYSTEM = "SYSTEM",
+    ERROR = "ERROR",
+    DEBUG = "DEBUG"
 }
 
 LogFrame.WINDOW_CONFIG = {
     CONTAINER_WIDTH = 1000,
-    CONTAINER_HEIGHT = 600,
+    CONTAINER_HEIGHT = 300,
     HEADER_HEIGHT = 25,
     ROW_HEIGHT = 25,
     COLUMNS = {
@@ -89,14 +89,15 @@ function LogFrame:Show()
     local categoryFilter = AceGUI:Create("Dropdown")
     categoryFilter:SetLabel(L["Category"])
     categoryFilter:SetWidth(200)
-    categoryFilter:SetRelativeWidth(0.2)  -- 20% der verfügbaren Breite
+    categoryFilter:SetRelativeWidth(0.2)
     
     -- Erstelle Liste aller Kategorien
     local categories = {
         [""] = L["All Categories"]
     }
     for _, category in pairs(self.CATEGORIES) do
-        categories[category] = category
+        local displayName = category:sub(1,1) .. category:sub(2):lower()
+        categories[category] = displayName
     end
     categoryFilter:SetList(categories)
     categoryFilter:SetValue(self.currentFilter.category or "")
@@ -233,7 +234,8 @@ function LogFrame:UpdateLogDisplay()
     
     -- Filtere Logs basierend auf Kategorie und Suchtext
     for _, log in ipairs(NM.logs) do
-        local matchesCategory = not self.currentFilter.category or log.category == self.currentFilter.category
+        local matchesCategory = not self.currentFilter.category or 
+                              log.category:upper() == self.currentFilter.category:upper()
         local matchesSearch = self.currentFilter.searchText == "" or 
                             log.message:lower():find(self.currentFilter.searchText, 1, true) or
                             FormatMetadata(log.metadata):lower():find(self.currentFilter.searchText, 1, true)
@@ -361,9 +363,11 @@ end
 function LogFrame:AddLog(category, message, metadata)
     if not message then return end
     
+    local upperCategory = category and category:upper() or self.CATEGORIES.SYSTEM
+    
     local logEntry = {
         timestamp = time(),
-        category = category or self.CATEGORIES.SYSTEM,
+        category = upperCategory,
         message = message,
         metadata = metadata or {}
     }
