@@ -30,7 +30,6 @@ end
 
 -- Logging functions
 function NM:Log(category, msg, metadata)
-    print(category, msg, metadata)
     -- Prüfe ob die Kategorie gültig ist
     if not self.LogFrame.CATEGORIES[category] then
         category = self.LogFrame.CATEGORIES.SYSTEM  -- Nutze die tatsächliche Kategorie-Konstante

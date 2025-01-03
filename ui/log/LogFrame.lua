@@ -1,12 +1,14 @@
 local NM = LibStub("AceAddon-3.0"):GetAddon("NexusManager")
 local AceGUI = LibStub("AceGUI-3.0")
 local L = NM.Locale
-local AceSerializer = LibStub("AceSerializer-3.0")
 
 local LogFrame = {}
 NM.LogFrame = LogFrame
 
--- Log Kategorien
+-- Initialisiere die Logs-Tabelle
+NM.logs = NM.logs or {}
+
+-- Log Kategorien und Window Config
 LogFrame.CATEGORIES = {
     CHALLENGE = "Challenge",
     SESSION = "Session",
@@ -15,38 +17,47 @@ LogFrame.CATEGORIES = {
     DEBUG = "Debug"
 }
 
--- Log Typen für Challenge
-LogFrame.CHALLENGE_TYPES = {
-    SEND = "Send",
-    RECEIVE = "Receive",
-    JOIN = "Join",
-    LEAVE = "Leave",
-    START = "Start",
-    END = "End",
-    CANCEL = "Cancel"
+LogFrame.WINDOW_CONFIG = {
+    CONTAINER_WIDTH = 1000,
+    CONTAINER_HEIGHT = 600,
+    HEADER_HEIGHT = 25,
+    ROW_HEIGHT = 25,
+    COLUMNS = {
+        TIME = {
+            width = 60,
+            name = L["Time"]
+        },
+        CATEGORY = {
+            width = 100,
+            name = L["Category"]
+        },
+        MESSAGE = {
+            width = 300,
+            name = L["Message"]
+        },
+        DATA = {
+            width = 500,
+            name = L["Data"]
+        }
+    }
 }
 
--- Initialisiere die Logs als persistente Tabelle
-NM.logs = NM.logs or {}
-
-function LogFrame:AddLog(category, message, metadata)
-    -- Überprüfe ob eine Nachricht vorhanden ist
-    if not message then return end
-    
-    -- Erstelle den Log-Eintrag
-    local logEntry = {
-        timestamp = time(),
-        category = category or self.CATEGORIES.SYSTEM,
-        message = message,
-        metadata = metadata or {}
-    }
-    
-    table.insert(NM.logs, logEntry)
-    
-    -- Aktualisiere das Fenster wenn es offen ist
-    if self.frame and self.editBox then
-        self:UpdateLogDisplay()
+-- Sortierlogik
+function LogFrame:SortBy(columnKey)
+    if not self.currentSort then
+        self.currentSort = {
+            column = columnKey,
+            ascending = true
+        }
+    elseif self.currentSort.column == columnKey then
+        self.currentSort.ascending = not self.currentSort.ascending
+    else
+        self.currentSort.column = columnKey
+        self.currentSort.ascending = true
     end
+    
+    self:UpdateLogDisplay()
+    self:UpdateSortIndicators()
 end
 
 function LogFrame:Show()
@@ -59,47 +70,54 @@ function LogFrame:Show()
     local frame = AceGUI:Create("Frame")
     frame:SetTitle(L["Log Viewer"])
     frame:SetLayout("Flow")
-    frame:SetWidth(800)
-    frame:SetHeight(600)
+    frame:SetWidth(self.WINDOW_CONFIG.CONTAINER_WIDTH)
+    frame:SetHeight(self.WINDOW_CONFIG.CONTAINER_HEIGHT)
     self.frame = frame
     
-    -- Filter Dropdown für Kategorien
-    local categoryFilter = AceGUI:Create("Dropdown")
-    categoryFilter:SetLabel(L["Category"])
-    categoryFilter:SetWidth(200)
-    local categories = {[""] = L["All"]}
-    for _, category in pairs(self.CATEGORIES) do
-        categories[category] = category
-    end
-    categoryFilter:SetList(categories)
-    categoryFilter:SetCallback("OnValueChanged", function(_, _, value)
-        self.currentFilter = value
-        self:UpdateLogDisplay()
-    end)
-    frame:AddChild(categoryFilter)
+    -- Header Container
+    local headerContainer = AceGUI:Create("SimpleGroup")
+    headerContainer:SetLayout("Flow")
+    headerContainer:SetFullWidth(true)
+    headerContainer:SetHeight(self.WINDOW_CONFIG.HEADER_HEIGHT)
+    headerContainer.frame:SetWidth(self.WINDOW_CONFIG.CONTAINER_WIDTH - 20)
     
-    -- Erstelle die Editbox für die Logs
-    local editBox = AceGUI:Create("MultiLineEditBox")
-    editBox:SetFullWidth(true)
-    editBox:SetHeight(500)
-    editBox:DisableButton(true)
-    editBox:SetLabel("")
-    editBox:SetMaxLetters(0) -- Unbegrenzte Textlänge
-    editBox:SetNumLines(0)   -- Automatische Zeilenzahl
-    self.editBox = editBox
+    -- Zeit Header
+    self.timeHeader = AceGUI:Create("InteractiveLabel")
+    self.timeHeader:SetText(self.WINDOW_CONFIG.COLUMNS.TIME.name)
+    self.timeHeader:SetWidth(self.WINDOW_CONFIG.COLUMNS.TIME.width)
+    self.timeHeader:SetCallback("OnClick", function() self:SortBy("TIME") end)
+    headerContainer:AddChild(self.timeHeader)
     
-    -- Aktiviere Scrolling
-    editBox.editBox:SetMultiLine(true)
-    editBox.editBox:SetAutoFocus(false)
-    editBox.scrollFrame:SetPoint("BOTTOMRIGHT", -23, 0)
+    -- Kategorie Header
+    self.categoryHeader = AceGUI:Create("InteractiveLabel")
+    self.categoryHeader:SetText(self.WINDOW_CONFIG.COLUMNS.CATEGORY.name)
+    self.categoryHeader:SetWidth(self.WINDOW_CONFIG.COLUMNS.CATEGORY.width)
+    self.categoryHeader:SetCallback("OnClick", function() self:SortBy("CATEGORY") end)
+    headerContainer:AddChild(self.categoryHeader)
     
-    frame:AddChild(editBox)
+    -- Message Header
+    self.messageHeader = AceGUI:Create("InteractiveLabel")
+    self.messageHeader:SetText(self.WINDOW_CONFIG.COLUMNS.MESSAGE.name)
+    self.messageHeader:SetWidth(self.WINDOW_CONFIG.COLUMNS.MESSAGE.width)
+    self.messageHeader:SetCallback("OnClick", function() self:SortBy("MESSAGE") end)
+    headerContainer:AddChild(self.messageHeader)
     
-    -- Button Container
-    local buttonGroup = AceGUI:Create("SimpleGroup")
-    buttonGroup:SetLayout("Flow")
-    buttonGroup:SetFullWidth(true)
-    buttonGroup:SetHeight(30)
+    -- Data Header
+    self.dataHeader = AceGUI:Create("InteractiveLabel")
+    self.dataHeader:SetText(self.WINDOW_CONFIG.COLUMNS.DATA.name)
+    self.dataHeader:SetWidth(self.WINDOW_CONFIG.COLUMNS.DATA.width)
+    self.dataHeader:SetCallback("OnClick", function() self:SortBy("DATA") end)
+    headerContainer:AddChild(self.dataHeader)
+    
+    frame:AddChild(headerContainer)
+    
+    -- Scrollframe für Logs
+    self.scrollframe = AceGUI:Create("ScrollFrame")
+    self.scrollframe:SetLayout("List")
+    self.scrollframe:SetFullWidth(true)
+    self.scrollframe:SetHeight(self.WINDOW_CONFIG.CONTAINER_HEIGHT - self.WINDOW_CONFIG.HEADER_HEIGHT - 80)
+    self.scrollframe.frame:SetWidth(self.WINDOW_CONFIG.CONTAINER_WIDTH - 20)
+    frame:AddChild(self.scrollframe)
     
     -- Clear Button
     local clearButton = AceGUI:Create("Button")
@@ -109,46 +127,143 @@ function LogFrame:Show()
         NM.logs = {}
         self:UpdateLogDisplay()
     end)
+    frame:AddChild(clearButton)
     
-    buttonGroup:AddChild(clearButton)
-    frame:AddChild(buttonGroup)
-    
-    -- Zeige aktuelle Logs an
     self:UpdateLogDisplay()
 end
 
-function LogFrame:UpdateLogDisplay()
-    if not self.editBox then return end
+local function FormatMetadata(metadata)
+    if not metadata then return "" end
     
-    local displayLogs = {}
-    for _, log in ipairs(NM.logs) do
-        -- Filtere nach Kategorie wenn ein Filter gesetzt ist
-        if not self.currentFilter or self.currentFilter == "" or log.category == self.currentFilter then
-            local timeString = date("%H:%M:%S", log.timestamp)
-            local metadataStr = ""
-            
-            -- Formatiere Metadata
-            if next(log.metadata) then
-                local metaParts = {}
-                for key, value in pairs(log.metadata) do
-                    table.insert(metaParts, key .. ": " .. tostring(value))
-                end
-                metadataStr = " [" .. table.concat(metaParts, ", ") .. "]"
+    local parts = {}
+    for key, value in pairs(metadata) do
+        if type(value) == "table" then
+            -- Für verschachtelte Tabellen
+            local subParts = {}
+            for k, v in pairs(value) do
+                table.insert(subParts, k .. "=" .. tostring(v))
             end
-            
-            -- Stelle sicher, dass message nicht nil ist
-            local message = log.message or "No message"
-            
-            table.insert(displayLogs, string.format("[%s] [%s]%s %s", 
-                timeString, 
-                log.category,
-                metadataStr,
-                message
-            ))
+            table.insert(parts, key .. "={" .. table.concat(subParts, ",") .. "}")
+        else
+            table.insert(parts, key .. "=" .. tostring(value))
         end
     end
     
-    self.editBox:SetText(table.concat(displayLogs, "\n"))
+    return table.concat(parts, " | ")
+end
+
+function LogFrame:UpdateLogDisplay()
+    if not self.scrollframe then return end
+    self.scrollframe:ReleaseChildren()
+    
+    -- Kopiere Logs in eine sortierbare Liste
+    local logsList = {}
+    for _, log in ipairs(NM.logs) do
+        table.insert(logsList, log)
+    end
+    
+    -- Sortiere die Liste
+    if self.currentSort then
+        table.sort(logsList, function(a, b)
+            local aValue, bValue
+            
+            if self.currentSort.column == "TIME" then
+                aValue = a.timestamp
+                bValue = b.timestamp
+            elseif self.currentSort.column == "CATEGORY" then
+                aValue = a.category
+                bValue = b.category
+            elseif self.currentSort.column == "MESSAGE" then
+                aValue = a.message
+                bValue = b.message
+            elseif self.currentSort.column == "DATA" then
+                aValue = NM.Utils:TableToString(a.metadata)
+                bValue = NM.Utils:TableToString(b.metadata)
+            end
+            
+            if self.currentSort.ascending then
+                return aValue < bValue
+            else
+                return aValue > bValue
+            end
+        end)
+    end
+    
+    -- Zeige sortierte Logs an
+    for index, log in ipairs(logsList) do
+        local row = AceGUI:Create("SimpleGroup")
+        row:SetLayout("Flow")
+        row:SetFullWidth(true)
+        row:SetHeight(self.WINDOW_CONFIG.ROW_HEIGHT)
+        row.frame:SetWidth(self.WINDOW_CONFIG.CONTAINER_WIDTH - 20)
+        
+        -- Alternierender Hintergrund
+        if index % 2 == 0 then
+            local bg = row.frame:CreateTexture(nil, "BACKGROUND")
+            bg:SetAllPoints()
+            bg:SetColorTexture(0.2, 0.2, 0.2, 0.3)
+        end
+        
+        -- Zeit
+        local time = AceGUI:Create("Label")
+        time:SetText(date("%H:%M:%S", log.timestamp))
+        time:SetWidth(self.WINDOW_CONFIG.COLUMNS.TIME.width)
+        time.label:SetJustifyH("LEFT")
+        row:AddChild(time)
+        
+        -- Kategorie
+        local category = AceGUI:Create("Label")
+        category:SetText(log.category)
+        category:SetWidth(self.WINDOW_CONFIG.COLUMNS.CATEGORY.width)
+        category.label:SetJustifyH("LEFT")
+        row:AddChild(category)
+        
+        -- Message
+        local message = AceGUI:Create("Label")
+        message:SetText(log.message)
+        message:SetWidth(self.WINDOW_CONFIG.COLUMNS.MESSAGE.width)
+        message.label:SetJustifyH("LEFT")
+        row:AddChild(message)
+        
+        -- Data
+        local data = AceGUI:Create("Label")
+        data:SetText(FormatMetadata(log.metadata))
+        data:SetWidth(self.WINDOW_CONFIG.COLUMNS.DATA.width)
+        data.label:SetJustifyH("LEFT")
+        data.label:SetWordWrap(false)
+        row:AddChild(data)
+        
+        self.scrollframe:AddChild(row)
+    end
+end
+
+function LogFrame:UpdateSortIndicators()
+    -- Setze Basis-Texte
+    local timeText = self.WINDOW_CONFIG.COLUMNS.TIME.name
+    local categoryText = self.WINDOW_CONFIG.COLUMNS.CATEGORY.name
+    local messageText = self.WINDOW_CONFIG.COLUMNS.MESSAGE.name
+    local dataText = self.WINDOW_CONFIG.COLUMNS.DATA.name
+    
+    if self.currentSort then
+        local arrow = self.currentSort.ascending and 
+            "|TInterface/BUTTONS/Arrow-Up-Up:12:12:0:0:1:1|t" or
+            "|TInterface/BUTTONS/Arrow-Down-Up:12:12:0:0:1:1|t"
+        
+        if self.currentSort.column == "TIME" then
+            timeText = timeText .. "  " .. arrow
+        elseif self.currentSort.column == "CATEGORY" then
+            categoryText = categoryText .. "  " .. arrow
+        elseif self.currentSort.column == "MESSAGE" then
+            messageText = messageText .. "  " .. arrow
+        elseif self.currentSort.column == "DATA" then
+            dataText = dataText .. "  " .. arrow
+        end
+    end
+    
+    self.timeHeader:SetText(timeText)
+    self.categoryHeader:SetText(categoryText)
+    self.messageHeader:SetText(messageText)
+    self.dataHeader:SetText(dataText)
 end
 
 function LogFrame:Hide()
@@ -157,19 +272,21 @@ function LogFrame:Hide()
     end
 end
 
-function LogFrame:FormatChallengeData(data)
-    if type(data) ~= "table" then return tostring(data) end
+function LogFrame:AddLog(category, message, metadata)
+    if not message then return end
     
-    local parts = {}
+    local logEntry = {
+        timestamp = time(),
+        category = category or self.CATEGORIES.SYSTEM,
+        message = message,
+        metadata = metadata or {}
+    }
     
-    -- Versuche alle Felder der Table zu formatieren
-    for key, value in pairs(data) do
-        if type(value) == "table" then
-            table.insert(parts, key .. ": " .. NM.Utils:TableToString(value))
-        else
-            table.insert(parts, key .. ": " .. tostring(value))
-        end
+    table.insert(NM.logs, logEntry)
+    
+    if self.frame and self.scrollframe then
+        self:UpdateLogDisplay()
     end
-    
-    return table.concat(parts, " | ")
 end
+
+NM.LogFrame = LogFrame
