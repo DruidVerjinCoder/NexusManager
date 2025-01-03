@@ -66,6 +66,97 @@ LogFrame.currentFilter = {
     searchText = ""
 }
 
+local function FormatMetadata(metadata)
+    if not metadata then return "" end
+    
+    local parts = {}
+    for key, value in pairs(metadata) do
+        if type(value) == "table" then
+            -- Für verschachtelte Tabellen
+            local subParts = {}
+            for k, v in pairs(value) do
+                table.insert(subParts, k .. "=" .. tostring(v))
+            end
+            table.insert(parts, key .. "={" .. table.concat(subParts, ",") .. "}")
+        else
+            table.insert(parts, key .. "=" .. tostring(value))
+        end
+    end
+    
+    return table.concat(parts, " | ")
+end
+
+local function SerializeValue(val)
+    if val == nil then
+        return "null"
+    elseif type(val) == "string" then
+        return string.format("%q", val)
+    elseif type(val) == "number" then
+        return tostring(val)
+    elseif type(val) == "boolean" then
+        return val and "true" or "false"
+    elseif type(val) == "table" then
+        local parts = {}
+        -- Prüfe ob es ein Array ist
+        local isArray = true
+        local maxIndex = 0
+        for k, _ in pairs(val) do
+            if type(k) ~= "number" or k < 1 then
+                isArray = false
+                break
+            end
+            maxIndex = max(maxIndex, k)
+        end
+        
+        if isArray then
+            for i = 1, maxIndex do
+                table.insert(parts, SerializeValue(val[i]))
+            end
+            return "[" .. table.concat(parts, ",") .. "]"
+        else
+            for k, v in pairs(val) do
+                table.insert(parts, string.format("%q:%s", k, SerializeValue(v)))
+            end
+            return "{" .. table.concat(parts, ",") .. "}"
+        end
+    end
+    return "null"
+end
+
+function LogFrame:ExportLogsAsJSON()
+    local logsToExport = {}
+    
+    for _, log in ipairs(NM.logs) do
+        -- Erstelle eine kopie des logs mit formatierter Zeit
+        table.insert(logsToExport, {
+            timestamp = date("%Y-%m-%d %H:%M:%S", log.timestamp),
+            category = log.category,
+            message = log.message,
+            metadata = log.metadata
+        })
+    end
+    
+    -- Konvertiere zu JSON mit unserer eigenen Funktion
+    local json = SerializeValue(logsToExport)
+    
+    -- Erstelle ein neues Fenster für den Export
+    local exportFrame = AceGUI:Create("Frame")
+    exportFrame:SetTitle(L["Export Logs"])
+    exportFrame:SetLayout("Fill")
+    exportFrame:SetWidth(600)
+    exportFrame:SetHeight(400)
+    
+    -- Erstelle ein Editbox für den JSON-Text
+    local editBox = AceGUI:Create("MultiLineEditBox")
+    editBox:SetLabel(L["Copy the following text:"])
+    editBox:SetFullWidth(true)
+    editBox:SetFullHeight(true)
+    editBox:SetText(json)
+    editBox:HighlightText()
+    editBox:SetFocus()
+    exportFrame:AddChild(editBox)
+end
+
 function LogFrame:Show()
     if self.frame then
         self.frame:Show()
@@ -134,7 +225,7 @@ function LogFrame:Show()
     self.filterInfo:SetRelativeWidth(0.15)  -- 15% der verfügbaren Breite
     filterContainer:AddChild(self.filterInfo)
     
-    -- Spacer zwischen Eintragsanzahl und Clear-Button
+    -- Spacer zwischen filterInfo und Clear-Button
     local spacer3 = AceGUI:Create("Label")
     spacer3:SetWidth(20)
     filterContainer:AddChild(spacer3)
@@ -143,12 +234,27 @@ function LogFrame:Show()
     local clearButton = AceGUI:Create("Button")
     clearButton:SetText(L["Clear"])
     clearButton:SetWidth(100)
-    clearButton:SetRelativeWidth(0.1)  -- 10% der verfügbaren Breite
+    clearButton:SetRelativeWidth(0.1)
     clearButton:SetCallback("OnClick", function()
         NM.logs = {}
         self:UpdateLogDisplay()
     end)
     filterContainer:AddChild(clearButton)
+    
+    -- Spacer zwischen Clear-Button und Export-Button
+    local spacer4 = AceGUI:Create("Label")
+    spacer4:SetWidth(20)
+    filterContainer:AddChild(spacer4)
+    
+    -- Export Button
+    local exportButton = AceGUI:Create("Button")
+    exportButton:SetText(L["Export"])
+    exportButton:SetWidth(100)
+    exportButton:SetRelativeWidth(0.1)
+    exportButton:SetCallback("OnClick", function()
+        self:ExportLogsAsJSON()
+    end)
+    filterContainer:AddChild(exportButton)
     
     frame:AddChild(filterContainer)
     
@@ -204,26 +310,6 @@ function LogFrame:Show()
     frame:AddChild(self.scrollframe)
     
     self:UpdateLogDisplay()
-end
-
-local function FormatMetadata(metadata)
-    if not metadata then return "" end
-    
-    local parts = {}
-    for key, value in pairs(metadata) do
-        if type(value) == "table" then
-            -- Für verschachtelte Tabellen
-            local subParts = {}
-            for k, v in pairs(value) do
-                table.insert(subParts, k .. "=" .. tostring(v))
-            end
-            table.insert(parts, key .. "={" .. table.concat(subParts, ",") .. "}")
-        else
-            table.insert(parts, key .. "=" .. tostring(value))
-        end
-    end
-    
-    return table.concat(parts, " | ")
 end
 
 function LogFrame:UpdateLogDisplay()

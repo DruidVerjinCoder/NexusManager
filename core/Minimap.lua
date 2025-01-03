@@ -49,6 +49,7 @@ function Minimap:OnInitialize()
             tooltip:AddLine("NexusManager")
             tooltip:AddLine(L["Left Click: Toggle Window"])
             tooltip:AddLine(L["Right Click: Open Options"])
+            tooltip:AddLine(L["Ctrl+Left Click: Open Logs"])
         end,
     })
 
