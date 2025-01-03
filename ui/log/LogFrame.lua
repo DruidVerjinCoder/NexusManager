@@ -156,7 +156,6 @@ function LogFrame:UpdateLogDisplay()
     if not self.scrollframe then return end
     self.scrollframe:ReleaseChildren()
     
-    -- Kopiere Logs in eine sortierbare Liste
     local logsList = {}
     for _, log in ipairs(NM.logs) do
         table.insert(logsList, log)
@@ -190,40 +189,39 @@ function LogFrame:UpdateLogDisplay()
     end
     
     -- Zeige sortierte Logs an
-    for index, log in ipairs(logsList) do
+    for _, log in ipairs(logsList) do
         local row = AceGUI:Create("SimpleGroup")
         row:SetLayout("Flow")
         row:SetFullWidth(true)
         row:SetHeight(self.WINDOW_CONFIG.ROW_HEIGHT)
         row.frame:SetWidth(self.WINDOW_CONFIG.CONTAINER_WIDTH - 20)
         
-        -- Alternierender Hintergrund
-        if index % 2 == 0 then
-            local bg = row.frame:CreateTexture(nil, "BACKGROUND")
-            bg:SetAllPoints()
-            bg:SetColorTexture(0.2, 0.2, 0.2, 0.3)
-        end
+        -- Container für alle Spalten
+        local contentGroup = AceGUI:Create("SimpleGroup")
+        contentGroup:SetLayout("Flow")
+        contentGroup:SetFullWidth(true)
+        contentGroup:SetHeight(self.WINDOW_CONFIG.ROW_HEIGHT)
         
         -- Zeit
         local time = AceGUI:Create("Label")
         time:SetText(date("%H:%M:%S", log.timestamp))
         time:SetWidth(self.WINDOW_CONFIG.COLUMNS.TIME.width)
         time.label:SetJustifyH("LEFT")
-        row:AddChild(time)
+        contentGroup:AddChild(time)
         
         -- Kategorie
         local category = AceGUI:Create("Label")
         category:SetText(log.category)
         category:SetWidth(self.WINDOW_CONFIG.COLUMNS.CATEGORY.width)
         category.label:SetJustifyH("LEFT")
-        row:AddChild(category)
+        contentGroup:AddChild(category)
         
         -- Message
         local message = AceGUI:Create("Label")
         message:SetText(log.message)
         message:SetWidth(self.WINDOW_CONFIG.COLUMNS.MESSAGE.width)
         message.label:SetJustifyH("LEFT")
-        row:AddChild(message)
+        contentGroup:AddChild(message)
         
         -- Data
         local data = AceGUI:Create("Label")
@@ -231,8 +229,9 @@ function LogFrame:UpdateLogDisplay()
         data:SetWidth(self.WINDOW_CONFIG.COLUMNS.DATA.width)
         data.label:SetJustifyH("LEFT")
         data.label:SetWordWrap(false)
-        row:AddChild(data)
+        contentGroup:AddChild(data)
         
+        row:AddChild(contentGroup)
         self.scrollframe:AddChild(row)
     end
 end
