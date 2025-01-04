@@ -67,7 +67,6 @@ function session:continue()
    
    self.pauseTime = nil
    self.state = "running"
-   NM:Print(L["Session was continued"])
 end
 
 function session:GetDurationString()
@@ -84,11 +83,10 @@ function session:pause()
    
    self.pauseTime = time()
    self.state = "paused"
-   NM:Print(L["Session was paused"])
 end
 
 -- Item Handling
-function session:itemLooted(event, message)
+function session:itemLooted(_, message)
    local itemLink, quantity = self:parseItemLoot(message)
    if not itemLink then return end
    
@@ -114,7 +112,7 @@ function session:parseItemLoot(message)
    end
    
    -- Check for single item
-   local item = message:match(PATTERN_LOOT_ITEM_SELF)
+   item = message:match(PATTERN_LOOT_ITEM_SELF)
    if item then
       return item, 1
    end
@@ -148,13 +146,11 @@ end
 function session:start()
    self:init()
    self.state = 'running'
-   NM:Print(L["Session was started"])
 end
 
 function session:restart()
    self:init()
    self.state = 'running'
-   NM:Print(L["Session was restarted"])
 end
 
 -- Utility Functions
@@ -255,7 +251,7 @@ function session:zoneSwitched()
    end
 end
 
-function session:moneyLooted(event, msg)
+function session:moneyLooted(_, msg)
    if self.state ~= "running" then return end
    
    local copper = 0

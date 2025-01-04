@@ -49,7 +49,7 @@ function ChallengeTab:Create()
         -- Prüfe ob eine Challenge mit Teilnehmern existiert
         if NM.Challenge and NM.Challenge.participants and next(NM.Challenge.participants) then
             -- Sende Cancel-Nachricht an alle Teilnehmer
-            NM.Challenge:BroadcastMessage("CANCEL_CHALLENGE", {
+            NM.Challenge:BroadcastMessage("CHALLENGE_END", {
                 message = L["Host has cancelled the challenge"],
                 key = NM.Challenge.key  -- Sende den Key mit
             })
@@ -316,18 +316,9 @@ function ChallengeTab:Create()
     -- Neue UpdateResults Funktion
     function container:UpdateResults(sortedResults)
         if not sortedResults then return end
-        
-        -- Aktualisiere die Anzeige der Ergebnisse
-        -- Zeige Platzierung, Name, LIV und optional Items/Gold
-        for i, result in ipairs(sortedResults) do
-            -- Hier die UI-Logik für die Anzeige der sortierten Ergebnisse
-            -- z.B. mit einer ScrollList oder ähnlichem
-            -- Platz #i: result.player - LIV: result.liv
-        end
     end
     
    
-    
     -- Key Gruppe
     local keyGroup = AceGUI:Create("SimpleGroup")
     keyGroup:SetLayout("Flow")

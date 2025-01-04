@@ -20,7 +20,7 @@ function Challenge:GenerateKey()
     local key = ""
     
     for i = 1, length do
-        local rand = random(1, strlen(chars))
+        local rand = random(i, strlen(chars))
         key = key .. strsub(chars, rand, rand)
     end
     
@@ -119,6 +119,7 @@ function Challenge:Reset()
     if NM.ui.challenge then
         NM.ui.challenge:UpdateParticipants(self.participants)
         NM.ui.challenge:UpdateResults(self.results)
+        NM.ui.challenge:UpdateUIState("initial", false)
     end
 end
 
@@ -203,7 +204,7 @@ function Challenge:Start(participants, timerData)
     end
 
     print("acceptedParticipants:")
-    for name, participant in pairs(acceptedParticipants) do
+    for name, _ in pairs(acceptedParticipants) do
         print("- " .. name)
     end
     
@@ -336,9 +337,6 @@ function Challenge:HandleMessage(sender, message)
     if data.type == "CANCEL_CHALLENGE" then
         -- Prüfe ob der Key übereinstimmt
         if data.data.key and data.data.key == self.key then
-            if data.data.message then
-                NM:Print(data.data.message)
-            end
             self:Reset()
             -- UI auf initialen Status zurücksetzen
             if NM.ui and NM.ui.challenge then
@@ -352,8 +350,6 @@ function Challenge:HandleMessage(sender, message)
     
     if data.type == "CHALLENGE_START" then
         -- Behalte die existierende Teilnehmerliste
-        local currentParticipants = self.participants
-        
         -- Setze Challenge-Status
         self.state = "running"
         self.startTime = data.data.startTime
@@ -540,8 +536,6 @@ function Challenge:HandleMessage(sender, message)
     
     if data.type == "JOIN_REQUEST" then
         -- Wenn wir der Host sind und der Key stimmt
-        -- NM:Print("JOIN_REQUEST started with key " .. data.data.key)
-        -- NM:Print("Compare key " .. data.data.key .. " with " .. self.key)
         if self.participants[UnitName("player")].isHost and data.data.ckey == self.key then
             -- Füge den Spieler hinzu
             self.participants[data.data.player] = {
@@ -559,30 +553,12 @@ function Challenge:HandleMessage(sender, message)
 end
 
 function Challenge:ShowFinalResults()
-    local totalLiv = 0
-    local winner = nil
-    local maxLiv = 0
-    
-    -- Berechne Gesamtwerte und finde den Gewinner
-    for player, result in pairs(self.results) do
-        totalLiv = totalLiv + (result.originalLiv or 0)
-        if result.originalLiv > maxLiv then
-            maxLiv = result.originalLiv
-            winner = player
-        end
-    end
-    
-    -- Zeige Zusammenfassung
     NM:Print("Challenge beendet!")
-    NM:Print(string.format(L["Total LIV: %s"], NM.session:FormatGold(totalLiv)))
-    if winner then
-        NM:Print(string.format(L["Winner: %s with %s LIV"], winner, NM.session:FormatGold(maxLiv)))
-    end
 end
 
 NM.Challenge = Challenge 
 
-function NM:ShowChallengeInvite(sender, data)
+function NM:ShowChallengeInvite(_, data)
     -- Erstelle den Dialog VOR dem Anzeigen
     StaticPopupDialogs["NEXUSMANAGER_CHALLENGE_INVITE"] = {
         text = string.format(L["Challenge invitation from %s"], data.leader),

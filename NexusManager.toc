@@ -23,4 +23,5 @@ ui/challenge/ChallengeTab.lua
 ui/todo/AddTodoFrame.lua
 ui/postrun/PostRunTab.lua
 ui/items/ItemsContainer.lua
+ui/log/LogFrame.lua
 locales.xml
