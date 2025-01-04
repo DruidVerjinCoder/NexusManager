@@ -26,6 +26,7 @@ function session:init()
 end
 
 function session:reset()
+   NM:Log("SYSTEM", "Session reset")
    self.start = time()
    self.currentGold = GetMoney()
    self.totalGold = 0
@@ -93,11 +94,19 @@ function session:itemLooted(_, message)
    local itemID = self:ToItemID(itemLink)
    if not itemID then return end
    
+   -- Log als ITEM mit allen relevanten Informationen
+   NM:Log("ITEM", "Looted: " .. itemLink, {
+      itemLink = itemLink,
+      count = quantity,
+      source = "loot",
+      sessionData = {
+         totalItems = self.itemsLooted[itemID] or 0,
+         sessionTime = time() - (self.startTime or 0)
+      }
+   })
+   
    self:addItem(itemID, quantity)
    self.itemsLooted[itemID] = (self.itemsLooted[itemID] or 0) + quantity
-   
-   -- Trigger Challenge Update when items are looted
-   self:SendChallengeUpdate()
    
    if NM.ItemsContainer then
       NM.ItemsContainer:Update()

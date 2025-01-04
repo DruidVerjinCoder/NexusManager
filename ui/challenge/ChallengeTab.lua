@@ -26,6 +26,33 @@ function ChallengeTab:Create()
     container:SetLayout("Flow")
     container:SetFullWidth(true)
     container:SetHeight(400)
+
+    -- Timer Container
+    local timerContainer = AceGUI:Create("SimpleGroup")
+    timerContainer:SetLayout(nil)  -- Entferne das Flow-Layout
+    timerContainer:SetFullWidth(true)
+    timerContainer:SetHeight(30)
+    container:AddChild(timerContainer)
+    
+    -- Timer Label
+    local timerLabel = AceGUI:Create("Label")
+    timerLabel:SetText("00:00:00")
+    timerLabel:SetWidth(200)
+    timerLabel:SetFont("Fonts\\FRIZQT__.TTF", 20, "OUTLINE")
+    timerContainer:AddChild(timerLabel)
+    
+    -- Zentriere das Label
+    timerLabel.frame:ClearAllPoints()
+    timerLabel.frame:SetPoint("CENTER", timerContainer.frame, "CENTER")
+    
+    -- Optional: Füge einen Hintergrund hinzu um den Container zu visualisieren
+    -- timerContainer.frame:SetBackdrop({
+    --     bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+    --     edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+    --     tile = true, tileSize = 16, edgeSize = 16,
+    --     insets = { left = 4, right = 4, top = 4, bottom = 4 }
+    -- })
+    -- timerContainer.frame:SetBackdropColor(0, 0, 0, 0.5)
     
     -- Scroll Container für alles
     local scrollContainer = AceGUI:Create("ScrollFrame")
@@ -97,19 +124,6 @@ function ChallengeTab:Create()
     participantsScroll:SetHeight(150)
     participantsContainer:AddChild(participantsScroll)
     
-    -- Timer Container
-    local timerContainer = AceGUI:Create("SimpleGroup")
-    timerContainer:SetLayout("Flow")
-    timerContainer:SetFullWidth(true)
-    timerContainer:SetHeight(30)
-    scrollContainer:AddChild(timerContainer)
-
-    -- Timer Label
-    local timerLabel = AceGUI:Create("Label")
-    timerLabel:SetText("00:00:00")
-    timerLabel:SetWidth(200)
-    timerLabel:SetFont("Fonts\\FRIZQT__.TTF", 20, "OUTLINE")
-    timerContainer:AddChild(timerLabel)
 
     -- Speichere Timer-Referenz
     self.timerLabel = timerLabel
@@ -175,7 +189,7 @@ function ChallengeTab:Create()
         
         -- Starte regelmäßige Updates
         if not NM.Challenge.updateTimer then
-            NM.Challenge.updateTimer = C_Timer.NewTicker(1, function()
+            NM.Challenge.updateTimer = C_Timer.NewTicker(10, function()
                 if NM.session and NM.session.state == "running" then
                     NM.session:SendChallengeUpdate()
                 end
@@ -353,12 +367,6 @@ function ChallengeTab:Create()
     keyGroup:AddChild(keyButton)
 
     scrollContainer:AddChild(keyGroup)
-    
-    -- Füge eine Trennlinie hinzu
-    local divider = AceGUI:Create("Heading")
-    divider:SetFullWidth(true)
-    scrollContainer:AddChild(divider)
-    
     NM.ui.challenge = container
 
     -- Speichere Referenzen auf die Key-UI-Elemente
@@ -1026,7 +1034,6 @@ end
 -- Neue Funktion zum Aktualisieren der Key-Anzeige
 function ChallengeTab:UpdateKeyDisplay(key)
     if key and self.keyBox then
-        print("Updating key display with:", key) -- Debug print
         self.keyBox:SetText(key)
         
         if self.copyButton then
@@ -1094,19 +1101,13 @@ end
 -- Füge diese neue Funktion hinzu:
 function ChallengeTab:HandleChallengeStart(data)
     if not data or not data.duration then 
-        print("HandleChallengeStart: Keine gültigen Timer-Daten")
         return 
     end
-    
-    print("HandleChallengeStart:")
-    print("Duration:", data.duration)
-    print("StartTime:", data.startTime)
     
     -- Berechne die verbleibende Zeit basierend auf der Startzeit
     local elapsed = GetTime() - data.startTime
     local remainingTime = data.duration - elapsed
     
-    print("Remaining Time:", remainingTime)
     
     -- Starte den Timer nur, wenn noch Zeit übrig ist
     if remainingTime > 0 then
