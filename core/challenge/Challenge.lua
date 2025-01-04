@@ -20,7 +20,7 @@ function Challenge:GenerateKey()
     local key = ""
     
     for i = 1, length do
-        local rand = random(i, strlen(chars))
+        local rand = random(1, strlen(chars))
         key = key .. strsub(chars, rand, rand)
     end
     
@@ -204,7 +204,7 @@ function Challenge:Start(participants, timerData)
     end
 
     print("acceptedParticipants:")
-    for name, _ in pairs(acceptedParticipants) do
+    for name, participant in pairs(acceptedParticipants) do
         print("- " .. name)
     end
     
@@ -350,6 +350,8 @@ function Challenge:HandleMessage(sender, message)
     
     if data.type == "CHALLENGE_START" then
         -- Behalte die existierende Teilnehmerliste
+        local currentParticipants = self.participants
+        
         -- Setze Challenge-Status
         self.state = "running"
         self.startTime = data.data.startTime
@@ -558,7 +560,7 @@ end
 
 NM.Challenge = Challenge 
 
-function NM:ShowChallengeInvite(_, data)
+function NM:ShowChallengeInvite(sender, data)
     -- Erstelle den Dialog VOR dem Anzeigen
     StaticPopupDialogs["NEXUSMANAGER_CHALLENGE_INVITE"] = {
         text = string.format(L["Challenge invitation from %s"], data.leader),

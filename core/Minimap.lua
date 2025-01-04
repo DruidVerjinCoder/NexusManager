@@ -31,12 +31,8 @@ function Minimap:OnInitialize()
         icon = "Interface\\Icons\\inv_misc_bag_10",
         OnClick = function(_, button)
             if button == "LeftButton" then
-                if IsShiftKeyDown then
-                    NM.LogFrame:Show()
-                else
-                    NM:OpenNexusManager(nil)
-                end
                 -- Toggle main window
+                NM:OpenNexusManager(nil)
             elseif button == "RightButton" then
                 -- Open options
                 Settings.OpenToCategory("NexusManager")

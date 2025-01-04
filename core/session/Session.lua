@@ -26,7 +26,6 @@ function session:init()
 end
 
 function session:reset()
-   NM:Log("SYSTEM", "Session reset")
    self.start = time()
    self.currentGold = GetMoney()
    self.totalGold = 0
@@ -87,26 +86,18 @@ function session:pause()
 end
 
 -- Item Handling
-function session:itemLooted(_, message)
+function session:itemLooted(event, message)
    local itemLink, quantity = self:parseItemLoot(message)
    if not itemLink then return end
    
    local itemID = self:ToItemID(itemLink)
    if not itemID then return end
    
-   -- Log als ITEM mit allen relevanten Informationen
-   NM:Log("ITEM", "Looted: " .. itemLink, {
-      itemLink = itemLink,
-      count = quantity,
-      source = "loot",
-      sessionData = {
-         totalItems = self.itemsLooted[itemID] or 0,
-         sessionTime = time() - (self.startTime or 0)
-      }
-   })
-   
    self:addItem(itemID, quantity)
    self.itemsLooted[itemID] = (self.itemsLooted[itemID] or 0) + quantity
+   
+   -- Trigger Challenge Update when items are looted
+   self:SendChallengeUpdate()
    
    if NM.ItemsContainer then
       NM.ItemsContainer:Update()
@@ -121,7 +112,7 @@ function session:parseItemLoot(message)
    end
    
    -- Check for single item
-   item = message:match(PATTERN_LOOT_ITEM_SELF)
+   local item = message:match(PATTERN_LOOT_ITEM_SELF)
    if item then
       return item, 1
    end
@@ -260,7 +251,7 @@ function session:zoneSwitched()
    end
 end
 
-function session:moneyLooted(_, msg)
+function session:moneyLooted(event, msg)
    if self.state ~= "running" then return end
    
    local copper = 0

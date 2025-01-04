@@ -20,16 +20,17 @@ NM.ui = {
 
 function NM:DeleteTodo(todoKey)
     if not todoKey then
+        NM:Log("Error: No todo key provided for deletion")
         return false
     end
 
     local success = NM.DB:DeleteTodo(todoKey)
     
     if success then
-        NM:Log("SYSTEM", "Todo deleted", {todoKey = todoKey})
+        NM:Print(L["Todo deleted"])
         self:reloadScrollFrameTable()
     else
-        NM:Log("SYSTEM", "Failed to delete todo", {todoKey = todoKey})
+        NM:Print(L["Failed to delete todo"])
     end
     
     return success
@@ -146,10 +147,10 @@ function NM:reloadScrollFrameTable()
                     preferredIndex = 3,
                     OnAccept = function()
                         if NM.DB:DeleteTodo(todo.key, todo.type, todo.assignment) then
-                            NM:Log("SYSTEM", "Todo deleted", {todoKey = todo.key})
+                            NM:Print(L["Todo deleted"])
                             NM:reloadScrollFrameTable()
                         else
-                            NM:Log("SYSTEM", "Failed to delete todo", {todoKey = todo.key})
+                            NM:Print(L["Failed to delete todo"])
                         end
                     end,
                 }
@@ -157,10 +158,10 @@ function NM:reloadScrollFrameTable()
             else
                 -- Direct deletion for character todos
                 if NM.DB:DeleteTodo(todo.key, todo.type, todo.assignment) then
-                    NM:Log("SYSTEM", "Todo deleted", {todoKey = todo.key})
+                    NM:Print(L["Todo deleted"])
                     NM:reloadScrollFrameTable()
                 else
-                    NM:Log("SYSTEM", "Failed to delete todo", {todoKey = todo.key})
+                    NM:Print(L["Failed to delete todo"])
                 end
             end
         end)
@@ -283,6 +284,7 @@ function NM:CreateMainFrame(tabIndex)
         local tabContainers = {}
 
         for i = 1, #tabNames do
+            print("Create Container for " .. tabNames[i])
             local tabContainer = AceGUI:Create("SimpleGroup")
             tabContainer:SetLayout("Fill")
             tabContainer:SetHeight(200);
@@ -330,7 +332,7 @@ function NM:CreateMainFrame(tabIndex)
                         end
                         NM.currentTab = "items"
                     elseif j == 4 then
-                        tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -25)
+                        tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -50)
                         if not NM.ui.challenge then
                             NM.ui.challenge = NM.ChallengeTab:Create()
                         end

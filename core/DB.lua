@@ -109,6 +109,7 @@ local defaults = {
 }
 
 function DB:OnInitialize()
+    NM:Log("Initializing DB")
     -- Initialisiere die Datenbank
     NM.db = LibStub("AceDB-3.0"):New("NexusManagerDB", defaults, true)
     
@@ -120,10 +121,12 @@ function DB:MigrateProfile()
     if not NM.db or not NM.db.profile then return end
     
     local currentVersion = NM.db.profile.dbVersion or 0
+    NM:Log(string.format("Current DB version: %d, Latest version: %d", currentVersion, CURRENT_DB_VERSION))
 
     -- Migration für jede Version durchführen
     while currentVersion < CURRENT_DB_VERSION do
         currentVersion = currentVersion + 1
+        NM:Log("Migrating to version " .. currentVersion)
 
         -- Version 1: Grundstruktur und tradeskill -> tradegoods Migration
         if currentVersion == 1 then

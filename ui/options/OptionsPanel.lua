@@ -114,6 +114,11 @@ function OptionsPanel:OnInitialize()
         },
     }
 
+    -- Debug-Ausgabe der DB-Struktur
+    for k,v in pairs(NM.db.profile) do
+        print(" -", k, type(v))
+    end
+
     -- Registriere die Optionen
     AceConfigRegistry:RegisterOptionsTable("NexusManager", options)
     

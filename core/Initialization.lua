@@ -29,16 +29,27 @@ function NM:GetLocales(locale)
 end
 
 -- Logging functions
-function NM:Log(category, msg, metadata)
-    -- Prüfe ob die Kategorie gültig ist
-    if not self.LogFrame.CATEGORIES[category] then
-        category = self.LogFrame.CATEGORIES.SYSTEM  -- Nutze die tatsächliche Kategorie-Konstante
+function NM:Log(msg)
+    if DEBUG then
+        self:Print(msg)
     end
-    
-    -- Füge Log zum LogFrame hinzu
-    self.LogFrame:AddLog(category, msg, metadata)
 end
 
+function NM:LogTable(tbl, indent)
+    if not DEBUG then return end
+    
+    indent = indent or ""
+    for k, v in pairs(tbl) do
+        if type(v) == "table" then
+            self:Print(indent .. tostring(k) .. ":")
+            self:LogTable(v, indent .. "  ")
+        else
+            self:Print(indent .. tostring(k) .. " = " .. tostring(v))
+        end
+    end
+end
+
+-- Database initialization and management
 function NM:InitializeCharacter()
     local guid = UnitGUID("player")
     if not guid then
