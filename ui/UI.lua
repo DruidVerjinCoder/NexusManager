@@ -330,7 +330,7 @@ function NM:CreateMainFrame(tabIndex)
                         end
                         NM.currentTab = "items"
                     elseif j == 4 then
-                        tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -50)
+                        tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -25)
                         if not NM.ui.challenge then
                             NM.ui.challenge = NM.ChallengeTab:Create()
                         end

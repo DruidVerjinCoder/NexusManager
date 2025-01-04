@@ -319,16 +319,32 @@ function Challenge:HandleMessage(sender, message)
     local success, data = AceSerializer:Deserialize(message)
     if not success then return end
     
+    if data.type == "LIVE_UPDATE" and self.state == "running" then
+        local player = data.data.player
+        local liv = data.data.liv or 0
+        
+        -- Aktualisiere direkt die Teilnehmerdaten und Ergebnisse
+        if self.participants[player] then
+            self.participants[player].liv = liv
+            self.results[player] = {
+                liv = liv,
+                totalGold = data.data.totalGold or 0,
+                lootedGold = data.data.lootedGold or 0,
+                originalLiv = liv
+            }
+            
+            -- UI nur einmal aktualisieren
+            if NM.ui and NM.ui.challenge then
+                NM.ui.challenge:UpdateParticipants(self.participants, self.results)
+            end
+        end
+        return -- Früher Return nach LIVE_UPDATE Verarbeitung
+    end
+    
     if data.type == "CANCEL_CHALLENGE" then
         -- Prüfe ob der Key übereinstimmt
         if data.data.key and data.data.key == self.key then
             self:Reset()
-            -- UI auf initialen Status zurücksetzen
-            if NM.ui and NM.ui.challenge then
-                NM.ui.challenge:UpdateUIState("initial", false)
-            end
-
-            self:ShowFloatingText(data.data.message)
         end
         return
     end
@@ -381,7 +397,6 @@ function Challenge:HandleMessage(sender, message)
             local finalData = {
                 player = UnitName("player"),
                 liv = NM.session.liv or 0,
-                items = NM.session.itemsLooted,
                 totalGold = NM.session.totalGold,
                 lootedGold = NM.session.lootedGold
             }
@@ -399,29 +414,6 @@ function Challenge:HandleMessage(sender, message)
         -- Zeige schwebenden Text an
         self:ShowFloatingText(L["Challenge Complete!"])
 
-    elseif data.type == "LIVE_UPDATE" then
-        -- Verarbeite LIVE_UPDATE nur wenn Challenge aktiv ist oder gerade beendet wurde
-        if self.state == "running" then
-            local player = data.data.player
-            local liv = data.data.liv or 0
-            
-            -- Aktualisiere direkt die Teilnehmerdaten und Ergebnisse
-            if self.participants[player] then
-                self.participants[player].liv = liv
-                self.results[player] = {
-                    liv = liv,
-                    items = data.data.items or {},
-                    totalGold = data.data.totalGold or 0,
-                    lootedGold = data.data.lootedGold or 0,
-                    originalLiv = liv
-                }
-                
-                -- UI nur einmal aktualisieren
-                if NM.ui and NM.ui.challenge then
-                    NM.ui.challenge:UpdateParticipants(self.participants, self.results)
-                end
-            end
-        end
     elseif data.type == "INVITE" then
         self.state = "pending"
         self.leader = data.data.leader
@@ -485,10 +477,6 @@ function Challenge:HandleMessage(sender, message)
             NM.ui.challenge:UpdateUIState(self.state, UnitName("player") == self.leader)
         end
         
-    elseif data.type == "LIVE_UPDATE" then
-        if self.state == "running" then
-            self:UpdateLiveResult(data.data.player, data.data)
-        end
     elseif data.type == "CHALLENGE_DATA" then
         -- Nur verarbeiten, wenn wir noch keine laufende Session haben
         if self.state ~= "running" then
@@ -578,51 +566,44 @@ end
 
 -- Neue Funktion für regelmäßige Updates
 function Challenge:StartLiveUpdates()
-    if self.updateTimer then return end
+    if self.updateTimer then 
+        NM:Log("DEBUG", "StartLiveUpdates: Timer existiert bereits", {})
+        return 
+    end
+    
+    NM:Log("DEBUG", "StartLiveUpdates: Starte neuen Timer", {})
     
     self.updateTimer = C_Timer.NewTicker(5, function()  -- Alle 5 Sekunden
-        if self.state == "running" then
+        if self.state == "running" and NM.session then
             -- Sammle aktuelle Session-Daten
             local currentData = {
                 player = UnitName("player"),
                 liv = NM.session.liv or 0,
-                items = NM.session.itemsLooted,
                 totalGold = NM.session.totalGold,
                 lootedGold = NM.session.lootedGold
             }
             
-            -- Aktualisiere eigene Teilnehmerdaten
-            if self.participants[UnitName("player")] then
-                self.participants[UnitName("player")].liv = currentData.liv
-            end
+            NM:Log("DEBUG", "LiveUpdate Timer: Sende Update", {
+                time = time(),
+                state = self.state,
+                hasSession = NM.session ~= nil
+            })
             
             -- Sende Live-Update
             self:BroadcastMessage("LIVE_UPDATE", currentData)
         else
             -- Stoppe Timer wenn Challenge nicht mehr läuft
-            self.updateTimer:Cancel()
-            self.updateTimer = nil
+            NM:Log("DEBUG", "LiveUpdate Timer: Stoppe Timer", {
+                state = self.state,
+                hasSession = NM.session ~= nil
+            })
+            
+            if self.updateTimer then
+                self.updateTimer:Cancel()
+                self.updateTimer = nil
+            end
         end
     end)
-end
-
-function Challenge:UpdateLiveResult(player, data)
-    if not self.results[player] then
-        self.results[player] = {}
-    end
-    
-    self.results[player] = {
-        liv = data.liv or 0,
-        items = data.items or {},
-        totalGold = data.totalGold or 0,
-        lootedGold = data.lootedGold or 0,
-        originalLiv = data.liv or 0  -- Speichere den Original-Wert
-    }
-    
-    -- UI nur einmal aktualisieren
-    if NM.ui and NM.ui.challenge then
-        NM.ui.challenge:UpdateParticipants(self.participants, self.results)
-    end
 end
 
 function Challenge:SendLiveUpdate(player, livData)

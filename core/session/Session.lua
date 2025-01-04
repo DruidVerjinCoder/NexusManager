@@ -88,18 +88,25 @@ end
 
 -- Item Handling
 function session:itemLooted(event, message)
-   NM:Log("SESSION", "Item looted: " .. message)
    local itemLink, quantity = self:parseItemLoot(message)
    if not itemLink then return end
    
    local itemID = self:ToItemID(itemLink)
    if not itemID then return end
    
+   -- Log als ITEM mit allen relevanten Informationen
+   NM:Log("ITEM", "Looted: " .. itemLink, {
+      itemLink = itemLink,
+      count = quantity,
+      source = "loot",
+      sessionData = {
+         totalItems = self.itemsLooted[itemID] or 0,
+         sessionTime = time() - (self.startTime or 0)
+      }
+   })
+   
    self:addItem(itemID, quantity)
    self.itemsLooted[itemID] = (self.itemsLooted[itemID] or 0) + quantity
-   
-   -- Trigger Challenge Update when items are looted
-   self:SendChallengeUpdate()
    
    if NM.ItemsContainer then
       NM.ItemsContainer:Update()

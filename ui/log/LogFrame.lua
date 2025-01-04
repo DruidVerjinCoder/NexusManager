@@ -14,12 +14,13 @@ LogFrame.CATEGORIES = {
     SESSION = "SESSION",
     SYSTEM = "SYSTEM",
     ERROR = "ERROR",
-    DEBUG = "DEBUG"
+    DEBUG = "DEBUG",
+    ITEM = "ITEM"
 }
 
 LogFrame.WINDOW_CONFIG = {
-    CONTAINER_WIDTH = 1000,
-    CONTAINER_HEIGHT = 300,
+    CONTAINER_WIDTH = 1100,
+    CONTAINER_HEIGHT = 450,
     HEADER_HEIGHT = 25,
     ROW_HEIGHT = 25,
     COLUMNS = {
@@ -160,14 +161,23 @@ end
 function LogFrame:Show()
     if self.frame then
         self.frame:Show()
+        NM:Log("DEBUG", "LogFrame: Showing existing frame")
+        self:UpdateLogDisplay()
         return
     end
     
+    NM:Log("DEBUG", "LogFrame: Creating new frame")
     local frame = AceGUI:Create("Frame")
     frame:SetTitle(L["Log Viewer"])
     frame:SetLayout("Flow")
     frame:SetWidth(self.WINDOW_CONFIG.CONTAINER_WIDTH)
     frame:SetHeight(self.WINDOW_CONFIG.CONTAINER_HEIGHT)
+    
+    -- Verstecke die Resize-Elemente
+    if frame.sizer_se then frame.sizer_se:Hide() end
+    if frame.sizer_s then frame.sizer_s:Hide() end
+    if frame.sizer_e then frame.sizer_e:Hide() end
+    
     self.frame = frame
     
     -- Filter Container
@@ -305,15 +315,22 @@ function LogFrame:Show()
     self.scrollframe = AceGUI:Create("ScrollFrame")
     self.scrollframe:SetLayout("List")
     self.scrollframe:SetFullWidth(true)
-    self.scrollframe:SetHeight(self.WINDOW_CONFIG.CONTAINER_HEIGHT - self.WINDOW_CONFIG.HEADER_HEIGHT - 80)
+    self.scrollframe:SetHeight(self.WINDOW_CONFIG.CONTAINER_HEIGHT - self.WINDOW_CONFIG.HEADER_HEIGHT - 120)
     self.scrollframe.frame:SetWidth(self.WINDOW_CONFIG.CONTAINER_WIDTH - 20)
     frame:AddChild(self.scrollframe)
     
+    -- Nur EINMAL beim ersten Öffnen die Logs laden
     self:UpdateLogDisplay()
+    NM:Log("DEBUG", "LogFrame: Initial log display complete", {count = #NM.logs})
 end
 
 function LogFrame:UpdateLogDisplay()
-    if not self.scrollframe then return end
+    if not self.scrollframe then 
+        NM:Log("DEBUG", "LogFrame: No scrollframe available")
+        return 
+    end
+    
+    NM:Log("DEBUG", "LogFrame: Starting log display update")
     self.scrollframe:ReleaseChildren()
     
     local logsList = {}
@@ -330,6 +347,8 @@ function LogFrame:UpdateLogDisplay()
             table.insert(logsList, log)
         end
     end
+    
+    NM:Log("DEBUG", "LogFrame: Filtered logs", {total = #NM.logs, filtered = #logsList})
     
     -- Update Anzahl der Einträge im Filter-Info Label
     if self.filterInfo then
@@ -398,17 +417,44 @@ function LogFrame:UpdateLogDisplay()
         message.label:SetJustifyH("LEFT")
         contentGroup:AddChild(message)
         
-        -- Data
-        local data = AceGUI:Create("Label")
-        data:SetText(FormatMetadata(log.metadata))
-        data:SetWidth(self.WINDOW_CONFIG.COLUMNS.DATA.width)
-        data.label:SetJustifyH("LEFT")
-        data.label:SetWordWrap(false)
-        contentGroup:AddChild(data)
+        -- Data-Spalte
+        local dataContainer = AceGUI:Create("SimpleGroup")
+        dataContainer:SetLayout("Fill")
+        dataContainer:SetWidth(self.WINDOW_CONFIG.COLUMNS.DATA.width)
+        dataContainer:SetHeight(self.WINDOW_CONFIG.ROW_HEIGHT)
         
+        local dataText = AceGUI:Create("Label")
+        
+        -- Formatiere den Text basierend auf der Kategorie
+        local displayText = ""
+        if log.category == "ITEM" and log.metadata and log.metadata.itemLink then
+            local itemData = log.metadata.itemData or {}
+            
+            displayText = string.format(
+                "%s | Qty: %d | iLvl: %s | %s | %s | %s",
+                log.metadata.itemLink or "N/A",
+                log.metadata.count or 1,
+                itemData.ilvl or "N/A",
+                itemData.quality or "N/A",
+                itemData.type or "N/A",
+                itemData.subType or "N/A"
+            )
+        else
+            displayText = FormatMetadata(log.metadata)
+        end
+        
+        dataText:SetText(displayText)
+        dataText:SetWidth(self.WINDOW_CONFIG.COLUMNS.DATA.width)
+        dataText.label:SetJustifyH("LEFT")
+        dataText.label:SetWordWrap(true)
+        
+        dataContainer:AddChild(dataText)
+        contentGroup:AddChild(dataContainer)
         row:AddChild(contentGroup)
         self.scrollframe:AddChild(row)
     end
+    
+    NM:Log("DEBUG", "LogFrame: Display update complete")
 end
 
 function LogFrame:UpdateSortIndicators()
@@ -451,6 +497,11 @@ function LogFrame:AddLog(category, message, metadata)
     
     local upperCategory = category and category:upper() or self.CATEGORIES.SYSTEM
     
+    -- Wenn es ein Item ist, sammle zusätzliche Item-Daten
+    if upperCategory == "ITEM" and metadata and metadata.itemLink then
+        metadata.itemData = self:GetItemData(metadata.itemLink)
+    end
+    
     local logEntry = {
         timestamp = time(),
         category = upperCategory,
@@ -459,10 +510,6 @@ function LogFrame:AddLog(category, message, metadata)
     }
     
     table.insert(NM.logs, logEntry)
-    
-    if self.frame and self.scrollframe then
-        self:UpdateLogDisplay()
-    end
 end
 
 -- Optional: Methode zum Zurücksetzen der Filter
@@ -472,6 +519,31 @@ function LogFrame:ResetFilters()
     if self.frame then
         self:UpdateLogDisplay()
     end
+end
+
+-- Hilfsfunktion zum Sammeln von Item-Informationen (am Anfang der Datei nach den Kategorien)
+function LogFrame:GetItemData(itemLink)
+    if not itemLink then return nil end
+    
+    local itemID = itemLink:match("item:(%d+)")
+    if not itemID then return nil end
+    
+    local itemName, _, itemRarity, itemLevel, itemMinLevel, itemType, 
+          itemSubType, _, itemEquipLoc, itemTexture = C_Item.GetItemInfo(itemLink)
+    
+    return {
+        id = itemID,
+        name = itemName,
+        link = itemLink,
+        rarity = itemRarity,
+        ilvl = itemLevel,
+        minLevel = itemMinLevel,
+        type = itemType,
+        subType = itemSubType,
+        equipSlot = itemEquipLoc,
+        texture = itemTexture,
+        quality = _G["ITEM_QUALITY" .. (itemRarity or 0) .. "_DESC"]
+    }
 end
 
 NM.LogFrame = LogFrame
