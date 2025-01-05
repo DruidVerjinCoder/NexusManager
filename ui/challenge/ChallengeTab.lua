@@ -202,7 +202,7 @@ inputGroup:AddChild(buttonSpacer2)
     local participantsScroll = AceGUI:Create("ScrollFrame")
     participantsScroll:SetLayout("List")
     participantsScroll:SetFullWidth(true)
-    participantsScroll:SetHeight(80)
+    participantsScroll:SetHeight(150)
     participantsContainer:AddChild(participantsScroll)
 
     -- Spacer zwischen Buttons
