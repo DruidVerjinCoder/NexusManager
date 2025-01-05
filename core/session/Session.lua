@@ -330,9 +330,7 @@ function session:SendChallengeUpdate()
     end
 
     -- Broadcast nur wenn es andere Teilnehmer gibt
-    if NM.Challenge.BroadcastMessage then
-        NM.Challenge:BroadcastMessage("LIVE_UPDATE", currentData)
-    end
+    NM.Challenge:BroadcastMessage("LIVE_UPDATE", currentData)
 end
 
 NM.session = session

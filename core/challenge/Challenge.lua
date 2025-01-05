@@ -313,6 +313,7 @@ function Challenge:BroadcastMessage(type, data, specificID)
 end
 
 function Challenge:HandleMessage(sender, message)
+    NM:Log("SYSTEM", message, { sender = sender })
     local success, data = AceSerializer:Deserialize(message)
     if not success then
         return
@@ -586,21 +587,7 @@ function Challenge:StartLiveUpdates()
         -- Alle 5 Sekunden
         if self.state == "running" then
             -- Sammle aktuelle Session-Daten
-            local currentData = {
-                player = UnitName("player"),
-                liv = NM.session.liv or 0,
-                items = NM.session.itemsLooted,
-                totalGold = NM.session.totalGold,
-                lootedGold = NM.session.lootedGold
-            }
-
-            -- Aktualisiere eigene Teilnehmerdaten
-            if self.participants[UnitName("player")] then
-                self.participants[UnitName("player")].liv = currentData.liv
-            end
-
-            -- Sende Live-Update
-            self:BroadcastMessage("LIVE_UPDATE", currentData)
+            NM.session:SendChallengeUpdate()
         else
             -- Stoppe Timer wenn Challenge nicht mehr läuft
             self.updateTimer:Cancel()

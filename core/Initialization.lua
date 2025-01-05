@@ -139,6 +139,7 @@ function NM:OnEnable()
 end
 
 function NM:BN_CHAT_MSG_ADDON(event, prefix, message, channel, sender)
+    NM:Print("Got an message from the addon")
     if prefix ~= "NM_CHALLENGE" then
         return
     end
