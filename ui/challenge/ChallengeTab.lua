@@ -64,65 +64,192 @@ function ChallengeTab:Create()
 
     scrollContainer:AddChild(timerContainer)
 
-    -- Duration Input
-    local durationInput = AceGUI:Create("EditBox")
-    durationInput:SetLabel(L["Duration (minutes)"])
-    durationInput:SetWidth(120)
-    durationInput:SetText("30")
-    durationInput:SetMaxLetters(4)
-
-    -- Reset Button
-    local resetButton = AceGUI:Create("Button")
-    resetButton:SetText(L["Reset"])
-    resetButton:SetWidth(80)
-    resetButton:SetCallback("OnClick", function()
-        -- Prüfe ob eine Challenge mit Teilnehmern existiert
-        if NM.Challenge and NM.Challenge.participants and next(NM.Challenge.participants) then
-            -- Sende Cancel-Nachricht an alle Teilnehmer
-            NM.Challenge:BroadcastMessage("CHALLENGE_END", {
-                message = L["Host has cancelled the challenge"],
-                key = NM.Challenge.key  -- Sende den Key mit
-            })
-        end
-
-        -- Führe lokalen Reset durch
-        if NM.Challenge then
-            NM.Challenge:Reset()
-        end
-
-        -- UI auf initialen Status zurücksetzen
-        container:UpdateUIState("initial", false)
-    end)
-
-    -- Input Group
+    -- Input Group mit Icon Buttons
     local inputGroup = AceGUI:Create("SimpleGroup")
     inputGroup:SetLayout("Flow")
     inputGroup:SetFullWidth(true)
-    inputGroup:SetHeight(40)
+    inputGroup:SetHeight(30)
+
+    -- Duration Input
+    local durationInput = AceGUI:Create("EditBox")
+    durationInput:SetLabel(L["Duration (minutes)"])
+    durationInput:SetWidth(80)
+    durationInput:SetText("30")
+    durationInput:SetMaxLetters(4)
     inputGroup:AddChild(durationInput)
+
+    -- Icon Buttons
+    local resetButton = AceGUI:Create("Icon")
+    resetButton:SetImage("Interface\\Buttons\\UI-RefreshButton")
+    resetButton:SetImageSize(20, 20)
+    resetButton:SetWidth(26)
+    resetButton:SetHeight(26)
+    resetButton:SetCallback("OnEnter", function()
+        GameTooltip:SetOwner(resetButton.frame, "ANCHOR_TOP")
+        GameTooltip:SetText(L["Reset"])
+        GameTooltip:Show()
+    end)
+    resetButton:SetCallback("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+    resetButton:SetCallback("OnClick", function()
+        -- Bestehender Reset-Code
+        if NM.Challenge and NM.Challenge.participants and next(NM.Challenge.participants) then
+            NM.Challenge:BroadcastMessage("CHALLENGE_END", {
+                message = L["Host has cancelled the challenge"],
+                key = NM.Challenge.key
+            })
+        end
+        if NM.Challenge then
+            NM.Challenge:Reset()
+        end
+        container:UpdateUIState("initial", false)
+    end)
     inputGroup:AddChild(resetButton)
-    scrollContainer:AddChild(inputGroup)
 
-    -- Button Container
-    local buttonContainer = AceGUI:Create("SimpleGroup")
-    buttonContainer:SetLayout("Flow")
-    buttonContainer:SetFullWidth(true)
-    buttonContainer:SetHeight(30)
-    scrollContainer:AddChild(buttonContainer)
+    local startButton = AceGUI:Create("Icon")
+    startButton:SetImage("Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up")
+    startButton:SetImageSize(20, 20)
+    startButton:SetWidth(26)
+    startButton:SetHeight(26)
+    startButton:SetDisabled(true)
+    startButton:SetCallback("OnEnter", function()
+        GameTooltip:SetOwner(startButton.frame, "ANCHOR_TOP")
+        GameTooltip:SetText(L["Start Challenge"])
+        GameTooltip:Show()
+    end)
+    startButton:SetCallback("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+    startButton:SetCallback("OnClick", function()
+        -- Starte Session des Leaders/Hosts
+        if NM.session then
+            NM.session:reset()
+            NM.session.state = "running"
+        end
 
-    -- Participants Container
+        -- Setze Challenge-Status auf "running"
+        NM.Challenge.state = "running"
+
+        -- Initialisiere Results für den Solo-Spieler
+        local playerName = UnitName("player")
+        if not NM.Challenge.results then
+            NM.Challenge.results = {}
+        end
+        NM.Challenge.results[playerName] = {
+            liv = 0,
+            items = {},
+            totalGold = 0,
+            lootedGold = 0
+        }
+
+        -- Stelle sicher, dass die Duration gesetzt ist
+        if not NM.Challenge.duration or NM.Challenge.duration <= 0 then
+            -- Verwende den Wert aus dem Input-Feld
+            local minutes = tonumber(durationInput:GetText()) or 30
+            NM.Challenge.duration = minutes * 60 -- Konvertiere zu Sekunden
+        end
+
+        -- Starte die Challenge mit Timer-Informationen
+        NM.Challenge:Start(NM.Challenge.participants, {
+            duration = NM.Challenge.duration,
+            startTime = GetTime()
+        })
+
+        -- Update UI Status auf "running"
+        container:UpdateUIState("running", true)
+
+        -- Aktualisiere die Teilnehmerliste
+        container:UpdateParticipants(NM.Challenge.participants, NM.Challenge.results)
+
+        -- Starte lokalen Timer
+        ChallengeTab:StartTimer(NM.Challenge.duration)
+
+        -- Sende Timer-Start an alle Teilnehmer
+        if NM.Challenge then
+            NM.Challenge:BroadcastMessage("CHALLENGE_TIMER_START", {
+                duration = NM.Challenge.duration,
+                startTime = GetTime()
+            })
+        end
+
+        -- Starte regelmäßige Updates
+        if not NM.Challenge.updateTimer then
+            NM.Challenge.updateTimer = C_Timer.NewTicker(5, function()
+                if NM.session and NM.session.state == "running" then
+                    NM.session:SendChallengeUpdate()
+                end
+            end)
+        end
+    end)
+    inputGroup:AddChild(startButton)
+
+    -- Participants Container (vor den Buttons definieren)
     local participantsContainer = AceGUI:Create("InlineGroup")
     participantsContainer:SetTitle(L["Participants"])
     participantsContainer:SetLayout("List")
     participantsContainer:SetWidth(600)
+    participantsContainer:SetHeight(100)
     participantsContainer.frame:Hide()
 
     -- Participants Scroll
     local participantsScroll = AceGUI:Create("ScrollFrame")
     participantsScroll:SetLayout("List")
     participantsScroll:SetFullWidth(true)
-    participantsScroll:SetHeight(115)
+    participantsScroll:SetHeight(80)
     participantsContainer:AddChild(participantsScroll)
+
+    -- Invite Icon Button mit korrigiertem Scope
+    local inviteButton = AceGUI:Create("Icon")
+    inviteButton:SetImage("Interface\\GossipFrame\\BankerGossipIcon")
+    inviteButton:SetImageSize(20, 20)
+    inviteButton:SetWidth(26)
+    inviteButton:SetHeight(26)
+    inviteButton:SetCallback("OnEnter", function()
+        GameTooltip:SetOwner(inviteButton.frame, "ANCHOR_TOP")
+        GameTooltip:SetText(L["Send Invites"])
+        GameTooltip:Show()
+    end)
+    inviteButton:SetCallback("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+    inviteButton:SetCallback("OnClick", function()
+        local duration = NM.Challenge.duration
+        if duration then
+            NM.Challenge:SendInvites(duration)
+            if not participantsContainer.parent then
+                scrollContainer:AddChild(participantsContainer)
+            end
+            participantsContainer.frame:Show()
+
+            -- Host wird sofort als Teilnehmer hinzugefügt und als Leader markiert
+            local playerName = UnitName("player")
+            if not NM.Challenge.participants[playerName] then
+                NM.Challenge.participants[playerName] = {
+                    accepted = true,
+                    isHost = true,
+                    isLeader = true,
+                    online = true
+                }
+                -- UI sofort aktualisieren mit Leader-Status
+                container:UpdateUIState("inviting", true)
+                container:UpdateParticipants(NM.Challenge.participants, NM.Challenge.results)
+                
+                -- Explizit den Start Button aktivieren für den Host
+                startButton:SetDisabled(false)
+            end
+        else
+            NM:Print(L["Please select a duration first"])
+        end
+    end)
+    inputGroup:AddChild(inviteButton)
+
+    -- Speichere wichtige Referenzen
+    self.participantsContainer = participantsContainer
+    self.participantsScroll = participantsScroll
+    container.participantsContainer = participantsContainer  -- Wichtig für UpdateUIState
+
+    scrollContainer:AddChild(inputGroup)
 
     -- Challenge Control Buttons nebeneinander
     -- Start Button zuerst erstellen
@@ -191,7 +318,6 @@ function ChallengeTab:Create()
             end)
         end
     end)
-    buttonContainer:AddChild(startButton)
 
     -- Dann den Invite Button
     local inviteButton = AceGUI:Create("Button")
@@ -223,7 +349,6 @@ function ChallengeTab:Create()
             NM:Print(L["Please select a duration first"])
         end
     end)
-    buttonContainer:AddChild(inviteButton)
 
     -- Update Functions
     function container:UpdateParticipants(participants, results)
@@ -392,14 +517,10 @@ function ChallengeTab:Create()
             durationInput:SetDisabled(false)
             durationInput:SetText("30")
 
-            -- Reset Buttons
-            if startButton then
-                startButton:SetDisabled(true)
-            end
-            if inviteButton then
-                inviteButton:SetDisabled(false)
-            end
-
+            -- Reset Icon Buttons
+            startButton:SetDisabled(true)
+            inviteButton:SetDisabled(false)
+            resetButton:SetDisabled(false)
 
             -- Reset Key und Join Button
             if self.keyBox then
@@ -407,7 +528,6 @@ function ChallengeTab:Create()
                 self.keyBox:SetDisabled(false)
             end
             if self.keyButton then
-                self.keyButton:SetText(L["Join"])
                 self.keyButton:SetDisabled(false)
             end
 
@@ -425,12 +545,8 @@ function ChallengeTab:Create()
             local playerName = UnitName("player")
             local isHost = NM.Challenge.participants[playerName] and NM.Challenge.participants[playerName].isHost
 
-            -- Start Button ist aktiv für Leader/Host
-            if isHost then
-                startButton:SetDisabled(false)
-            else
-                startButton:SetDisabled(true)
-            end
+            -- Start Button ist nur aktiv für Leader/Host
+            startButton:SetDisabled(not isHost)
 
             -- Deaktiviere Key Input und Join Button während einer Challenge
             if self.keyBox then
@@ -478,6 +594,12 @@ function ChallengeTab:Create()
 
     -- Initial UI State
     container:UpdateUIState(nil, false)
+
+    -- Speichere Referenzen
+    self.startButton = startButton
+    self.inviteButton = inviteButton
+    self.resetButton = resetButton
+    self.durationInput = durationInput
 
     return container
 end
