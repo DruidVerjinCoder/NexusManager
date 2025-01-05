@@ -13,47 +13,42 @@ local Challenge = {
     results = {}
 }
 
-
 function Challenge:GenerateKey()
     local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     local length = 8
     local key = ""
-    
+
     for i = 1, length do
         local rand = random(1, strlen(chars))
         key = key .. strsub(chars, rand, rand)
     end
-    
+
     return key
 end
 
 -- Optional: Füge eine Debug-Funktion hinzu
 function Challenge:PrintDebugInfo()
-    print("Challenge Debug Info:")
-    print("Key:", self.key or "kein Key")
-    print("State:", self.state or "kein State")
-    print("Leader:", self.leader or "kein Leader")
 end
 
 function Challenge:SendInvites()
-    if self.state then 
-        return 
+    if self.state then
+        return
     end
-    
+
     self.state = "inviting"
     self.leader = UnitName("player")
     self.participants = {}
     self.pendingInvites = {}
-    
+
     -- Generiere den Challenge Key beim Senden der Einladungen
     self.key = self:GenerateKey()
-    print("Challenge Key generiert:", self.key) -- Debug print
-    
+    NM:Log("CHALLENGE", "Challenge Key generiert:", { key = self.key })
+
     -- Aktualisiere das UI mit dem neuen Key
     if NM.ChallengeTab then
         NM.ChallengeTab:UpdateKeyDisplay(self.key)
     end
-    
+
     -- Host als ersten Teilnehmer hinzufügen
     self.participants[self.leader] = {
         accepted = true,
@@ -62,15 +57,15 @@ function Challenge:SendInvites()
         isHost = true,
         liv = NM.session and NM.session.liv or 0
     }
-    
+
     local invitedCount = 0
     for i = 1, BNGetNumFriends() do
         local accountInfo = C_BattleNet.GetFriendAccountInfo(i)
-        if accountInfo and accountInfo.gameAccountInfo and 
-           accountInfo.gameAccountInfo.isOnline and 
-           accountInfo.gameAccountInfo.clientProgram == "WoW" and
-           accountInfo.gameAccountInfo.characterName ~= self.leader then
-            
+        if accountInfo and accountInfo.gameAccountInfo and
+                accountInfo.gameAccountInfo.isOnline and
+                accountInfo.gameAccountInfo.clientProgram == "WoW" and
+                accountInfo.gameAccountInfo.characterName ~= self.leader then
+
             local playerName = accountInfo.gameAccountInfo.characterName
             self.pendingInvites[playerName] = true
             self.participants[playerName] = {
@@ -78,30 +73,30 @@ function Challenge:SendInvites()
                 declined = false,
                 online = true
             }
-            
+
             self:BroadcastMessage("INVITE", {
                 key = self.key,
                 leader = self.leader,
                 participants = self.participants
             }, i)
-            
+
             invitedCount = invitedCount + 1
         end
     end
-    
+
     if invitedCount > 0 then
         NM:Print(string.format(L["Challenge invitations sent to %d players"], invitedCount))
     else
         NM:Print(L["No online WoW friends found to invite"])
         self:Reset()
     end
-    
+
     -- UI Update für den Host
     if NM.ui.challenge then
         NM.ui.challenge:UpdateParticipants(self.participants)
         NM.ui.challenge:UpdateUIState("inviting", true)
     end
-    
+
     -- Debug print
     self:PrintDebugInfo()
 end
@@ -115,7 +110,7 @@ function Challenge:Reset()
     self.startTime = nil
     self.endTime = nil
     self.results = {}
-    
+
     if NM.ui.challenge then
         NM.ui.challenge:UpdateParticipants(self.participants)
         NM.ui.challenge:UpdateResults(self.results)
@@ -128,24 +123,24 @@ function Challenge:Accept()
     self:BroadcastMessage("ACCEPT", {
         player = UnitName("player")
     })
-    
+
     -- Aktualisiere lokalen Status
     if not self.participants[UnitName("player")] then
         self.participants[UnitName("player")] = {
-            accepted = false, 
+            accepted = false,
             online = true,
             isHost = (UnitName("player") == self.leader)
         }
     end
     self.participants[UnitName("player")].accepted = true
-    
+
     -- UI Update
     NM:OpenNexusManager()
-    
+
     -- Wechsle zum Challenge-Tab (4 ist der Index für den Challenge-Tab)
     if NM.mainFrame then
         NM.mainFrame:SelectTab(4)
-        
+
         -- Warte kurz, bis der Tab gewechselt wurde
         C_Timer.After(0.1, function()
             if NM.ui.challenge then
@@ -156,7 +151,7 @@ function Challenge:Accept()
             end
         end)
     end
-    
+
     NM:Print(L["You accepted the challenge"])
 end
 
@@ -165,18 +160,18 @@ function Challenge:Decline()
     self:BroadcastMessage("DECLINE", {
         player = UnitName("player")
     })
-    
+
     -- Markiere lokal als abgelehnt
     if self.participants[UnitName("player")] then
         self.participants[UnitName("player")].declined = true
         self.participants[UnitName("player")].accepted = false
     end
-    
+
     -- UI Update
     if NM.ui and NM.ui.challenge then
         NM.ui.challenge:UpdateParticipants(self.participants)
     end
-    
+
     NM:Print(L["You declined the challenge"])
 end
 
@@ -189,12 +184,12 @@ function Challenge:Start(participants, timerData)
             break
         end
     end
-    
+
     if not hasAcceptedParticipants then
         print(L["No participants have accepted the challenge"])
         return
     end
-    
+
     -- Bereinige die Teilnehmerliste - behalte NUR akzeptierte und NICHT abgelehnte Teilnehmer
     local acceptedParticipants = {}
     for name, participant in pairs(self.participants) do
@@ -203,35 +198,22 @@ function Challenge:Start(participants, timerData)
         end
     end
 
-    print("acceptedParticipants:")
-    for name, participant in pairs(acceptedParticipants) do
-        print("- " .. name)
-    end
-    
     -- Ersetze die alte Teilnehmerliste mit der bereinigten Liste
     self.participants = acceptedParticipants
-    
+
     -- Lösche ausstehende Einladungen
     self.pendingInvites = {}
-    
+
     -- Starte die Challenge
     self.state = "running"
     self.startTime = time()
     self.endTime = self.startTime + self.duration
-    
+
     -- Aktualisiere das UI
     if NM.ChallengeTab then
         NM.ChallengeTab:UpdateParticipants(self.participants)
     end
-    
-    -- -- Starte nur Sessions für akzeptierte Teilnehmer
-    -- if NM.session then
-    --     local playerName = UnitName("player")
-    --     if self.participants[playerName] then -- Jetzt sind nur noch wirklich aktive Teilnehmer in der Liste
-    --         NM.session:reset()
-    --     end
-    -- end
-    
+
     -- Broadcast den Start
     self:BroadcastMessage("CHALLENGE_START", {
         participants = participants,
@@ -239,27 +221,24 @@ function Challenge:Start(participants, timerData)
         duration = timerData.duration,
         startTime = timerData.startTime
     })
-    
-    -- Debug print
-    print("Aktive Teilnehmer nach Start:")
-    for name, _ in pairs(self.participants) do
-        print("- " .. name)
-    end
+
 end
 
 function Challenge:Stop()
-    if self.state ~= "running" then return end
-    
+    if self.state ~= "running" then
+        return
+    end
+
     self.state = "finished"
-    
+
     -- Stoppe lokale Session
     if NM.session then
         NM.session:Stop()
     end
-    
+
     -- Zeige Endergebnisse
     self:ShowFinalResults()
-    
+
     -- Informiere alle Teilnehmer
     self:BroadcastMessage("STOP", {
         endTime = time()
@@ -273,19 +252,20 @@ function Challenge:AddResult(player, results)
         totalGold = results.totalGold or 0,
         lootedGold = results.lootedGold or 0
     }
-    
+
     if NM.ui.challenge then
         NM.ui.challenge:UpdateResults(self.results)
     end
-    
+
 end
 
 function Challenge:BroadcastMessage(type, data, specificID)
     -- Füge den Key zu den Daten hinzu
-    if type ~= "INVITE" then -- Bei Einladungen noch keinen Key mitschicken
+    if type ~= "INVITE" then
+        -- Bei Einladungen noch keinen Key mitschicken
         data.key = self.key
     end
-    
+
     local message = {
         type = type,
         data = data,
@@ -293,9 +273,9 @@ function Challenge:BroadcastMessage(type, data, specificID)
         addon = "NexusManager",
         challenge = true
     }
-    
+
     local serialized = AceSerializer:Serialize(message)
-    
+
     -- Wenn ein spezifischer Spieler angegeben ist
     if specificID then
         local accountInfo = C_BattleNet.GetFriendAccountInfo(specificID)
@@ -307,15 +287,15 @@ function Challenge:BroadcastMessage(type, data, specificID)
         end
         return
     end
-    
+
     -- Sende an alle Teilnehmer
     local sentCount = 0
     for i = 1, BNGetNumFriends() do
         local accountInfo = C_BattleNet.GetFriendAccountInfo(i)
-        if accountInfo and accountInfo.gameAccountInfo and 
-           accountInfo.gameAccountInfo.isOnline and 
-           accountInfo.gameAccountInfo.clientProgram == "WoW" then
-            
+        if accountInfo and accountInfo.gameAccountInfo and
+                accountInfo.gameAccountInfo.isOnline and
+                accountInfo.gameAccountInfo.clientProgram == "WoW" then
+
             local playerName = accountInfo.gameAccountInfo.characterName
             -- Sende nur an Teilnehmer der Challenge
             if self.participants[playerName] then
@@ -327,13 +307,15 @@ function Challenge:BroadcastMessage(type, data, specificID)
             end
         end
     end
-    
+
 end
 
 function Challenge:HandleMessage(sender, message)
     local success, data = AceSerializer:Deserialize(message)
-    if not success then return end
-    
+    if not success then
+        return
+    end
+
     if data.type == "CANCEL_CHALLENGE" then
         -- Prüfe ob der Key übereinstimmt
         if data.data.key and data.data.key == self.key then
@@ -347,50 +329,50 @@ function Challenge:HandleMessage(sender, message)
         end
         return
     end
-    
+
     if data.type == "CHALLENGE_START" then
         -- Behalte die existierende Teilnehmerliste
         local currentParticipants = self.participants
-        
+
         -- Setze Challenge-Status
         self.state = "running"
         self.startTime = data.data.startTime
         self.duration = data.data.duration
         self.endTime = data.data.endTime
-        
+
         -- Verwende die übergebenen Teilnehmer, falls vorhanden, sonst behalte die aktuellen
         if data.data.participants then
             self.participants = data.data.participants
         end
-        
+
         -- Starte lokale Session
         if NM.session then
             NM.session:reset()
             NM.session.state = "running"
         end
-        
+
         -- Starte Live-Updates
         self:StartLiveUpdates()
-        
+
         -- UI Update
         if NM.ui and NM.ui.challenge then
             NM.ui.challenge:UpdateParticipants(self.participants)
             NM.ui.challenge:UpdateUIState("running", UnitName("player") == self.leader)
             NM.ChallengeTab:StartTimer(self.duration)
         end
-        
+
         NM:Print(L["Challenge started!"])
     elseif data.type == "CHALLENGE_END" then
         -- Stoppe die Session zum exakt gleichen Zeitpunkt
         if NM.session then
             NM.session:pause()
         end
-        
+
         -- Stoppe den Timer
         if NM.ChallengeTab then
             NM.ChallengeTab:StopTimer()
         end
-        
+
         -- Sende ein finales LIVE_UPDATE
         if NM.session then
             local finalData = {
@@ -402,13 +384,13 @@ function Challenge:HandleMessage(sender, message)
             }
             self:BroadcastMessage("LIVE_UPDATE", finalData)
         end
-        
+
         -- Stoppe Live-Updates
         if self.updateTimer then
             self.updateTimer:Cancel()
             self.updateTimer = nil
         end
-        
+
         self.state = "finished"
 
         -- Zeige schwebenden Text an
@@ -419,7 +401,7 @@ function Challenge:HandleMessage(sender, message)
         if self.state == "running" then
             local player = data.data.player
             local liv = data.data.liv or 0
-            
+
             -- Aktualisiere direkt die Teilnehmerdaten und Ergebnisse
             if self.participants[player] then
                 self.participants[player].liv = liv
@@ -430,7 +412,7 @@ function Challenge:HandleMessage(sender, message)
                     lootedGold = data.data.lootedGold or 0,
                     originalLiv = liv
                 }
-                
+
                 -- UI nur einmal aktualisieren
                 if NM.ui and NM.ui.challenge then
                     NM.ui.challenge:UpdateParticipants(self.participants, self.results)
@@ -443,26 +425,26 @@ function Challenge:HandleMessage(sender, message)
         self.participants = data.data.participants
         self.key = data.data.key
         NM:ShowChallengeInvite(sender, data.data)
-        
+
     elseif data.type == "ACCEPT" then
         -- Aktualisiere die Teilnehmerliste
         if self.participants[data.data.player] then
             self.participants[data.data.player].accepted = true
             self.participants[data.data.player].liv = 0
-            
+
             -- Broadcast den neuen Status an alle
             self:BroadcastMessage("UPDATE_PARTICIPANTS", {
                 participants = self.participants,
                 state = self.state
             })
-            
+
             -- UI Update
             if NM.ui and NM.ui.challenge then
                 NM.ui.challenge:UpdateParticipants(self.participants, self.results)
                 NM.ui.challenge:UpdateUIState("inviting", UnitName("player") == self.leader)
             end
         end
-        
+
     elseif data.type == "DECLINE" then
         if self.participants[data.data.player] then
             -- Markiere den Spieler als abgelehnt, anstatt ihn zu entfernen
@@ -471,35 +453,35 @@ function Challenge:HandleMessage(sender, message)
                 declined = true,
                 online = true
             }
-            
+
             -- Broadcast den neuen Status an alle
             self:BroadcastMessage("UPDATE_PARTICIPANTS", {
                 participants = self.participants
             })
-            
+
             -- UI Update
             if NM.ui and NM.ui.challenge then
                 NM.ui.challenge:UpdateParticipants(self.participants, self.results)
             end
-            
+
             if self.leader == UnitName("player") then
                 NM:Print(string.format(L["%s declined the challenge"], data.data.player))
             end
         end
         return
     elseif data.type == "PAUSE" then
-        
+
     elseif data.type == "UPDATE_PARTICIPANTS" then
         -- Alle Teilnehmer aktualisieren ihre Liste
         self.participants = data.data.participants
         self.state = data.data.state or self.state
-        
+
         -- UI Update für alle Teilnehmer
         if NM.ui and NM.ui.challenge then
             NM.ui.challenge:UpdateParticipants(self.participants, self.results)
             NM.ui.challenge:UpdateUIState(self.state, UnitName("player") == self.leader)
         end
-        
+
     elseif data.type == "LIVE_UPDATE" then
         if self.state == "running" then
             self:UpdateLiveResult(data.data.player, data.data)
@@ -515,7 +497,7 @@ function Challenge:HandleMessage(sender, message)
             self.startTime = data.data.startTime
             self.endTime = data.data.endTime
             self.results = data.data.results
-            
+
             -- Starte die Session, wenn die Challenge läuft
             if self.state == "running" and NM.session then
                 NM.session:reset()
@@ -523,19 +505,19 @@ function Challenge:HandleMessage(sender, message)
                 -- Starte Live-Updates
                 self:StartLiveUpdates()
             end
-            
+
             -- UI aktualisieren
             if NM.ui and NM.ui.challenge then
                 NM.ui.challenge:UpdateParticipants(self.participants, self.results)
                 NM.ui.challenge:UpdateUIState(self.state, UnitName("player") == self.leader)
             end
-            
+
             NM:Print(L["Joined ongoing challenge"])
         else
             NM:Print(L["Already in a running challenge"])
         end
     end
-    
+
     if data.type == "JOIN_REQUEST" then
         -- Wenn wir der Host sind und der Key stimmt
         if self.participants[UnitName("player")].isHost and data.data.ckey == self.key then
@@ -547,7 +529,7 @@ function Challenge:HandleMessage(sender, message)
                 isHost = false,
                 liv = 0
             }
-            
+
             -- Sende aktuelle Challenge-Daten an den neuen Teilnehmer
             self:SendChallengeDataTo(data.data.player)
         end
@@ -558,7 +540,7 @@ function Challenge:ShowFinalResults()
     NM:Print("Challenge beendet!")
 end
 
-NM.Challenge = Challenge 
+NM.Challenge = Challenge
 
 function NM:ShowChallengeInvite(sender, data)
     -- Erstelle den Dialog VOR dem Anzeigen
@@ -570,33 +552,36 @@ function NM:ShowChallengeInvite(sender, data)
         whileDead = true,
         hideOnEscape = true,
         preferredIndex = 3,
-        
+
         OnAccept = function()
             if self.Challenge then
                 self.Challenge:Accept()
             end
         end,
-        
+
         OnCancel = function()
             if self.Challenge then
                 self.Challenge:Decline()
             end
         end,
-        
+
         OnShow = function(self)
             self.text:SetText(string.format(L["Challenge invitation from %s"], data.leader))
         end,
     }
-    
+
     -- Dann zeige den Dialog an
     StaticPopup_Show("NEXUSMANAGER_CHALLENGE_INVITE")
 end
 
 -- Neue Funktion für regelmäßige Updates
 function Challenge:StartLiveUpdates()
-    if self.updateTimer then return end
-    
-    self.updateTimer = C_Timer.NewTicker(5, function()  -- Alle 5 Sekunden
+    if self.updateTimer then
+        return
+    end
+
+    self.updateTimer = C_Timer.NewTicker(5, function()
+        -- Alle 5 Sekunden
         if self.state == "running" then
             -- Sammle aktuelle Session-Daten
             local currentData = {
@@ -606,12 +591,12 @@ function Challenge:StartLiveUpdates()
                 totalGold = NM.session.totalGold,
                 lootedGold = NM.session.lootedGold
             }
-            
+
             -- Aktualisiere eigene Teilnehmerdaten
             if self.participants[UnitName("player")] then
                 self.participants[UnitName("player")].liv = currentData.liv
             end
-            
+
             -- Sende Live-Update
             self:BroadcastMessage("LIVE_UPDATE", currentData)
         else
@@ -626,7 +611,7 @@ function Challenge:UpdateLiveResult(player, data)
     if not self.results[player] then
         self.results[player] = {}
     end
-    
+
     self.results[player] = {
         liv = data.liv or 0,
         items = data.items or {},
@@ -634,7 +619,7 @@ function Challenge:UpdateLiveResult(player, data)
         lootedGold = data.lootedGold or 0,
         originalLiv = data.liv or 0  -- Speichere den Original-Wert
     }
-    
+
     -- UI nur einmal aktualisieren
     if NM.ui and NM.ui.challenge then
         NM.ui.challenge:UpdateParticipants(self.participants, self.results)
@@ -657,7 +642,7 @@ function Challenge:SendLiveUpdate(player, livData)
                         addon = "NexusManager",
                         challenge = true
                     }
-                    
+
                     local serialized = AceSerializer:Serialize(message)
                     BNSendGameData(presenceID, "NM_CHALLENGE", serialized)
                 end
@@ -667,19 +652,18 @@ function Challenge:SendLiveUpdate(player, livData)
 end
 
 function Challenge:JoinWithKey(inputKey)
-    NM:Print("JoinWithKey started with key " .. inputKey)
-    
+
     -- Hole eigene Account Info
     local accountInfo = C_BattleNet.GetAccountInfoByGUID(UnitGUID("player"))
     local gameAccountID = accountInfo and accountInfo.gameAccountInfo and accountInfo.gameAccountInfo.gameAccountID
-    
+
     -- Sende Join-Request mit Account Info
     local message = {
         ckey = inputKey,
         player = UnitName("player"),
         accountID = gameAccountID  -- Füge Game Account ID hinzu
     }
-    
+
     self:BroadcastMessage("JOIN_REQUEST", message)
 end
 
@@ -696,7 +680,7 @@ function Challenge:SendChallengeDataTo(player)
     }
     NM:Print("Sende Challenge-Daten an " .. player)
     self:BroadcastMessage("CHALLENGE_DATA", challengeData)
-    
+
     -- Informiere alle Teilnehmer über den neuen Spieler
     self:BroadcastMessage("UPDATE_PARTICIPANTS", {
         participants = self.participants,
@@ -713,7 +697,7 @@ function Challenge:GetAcceptedParticipants()
         end
     end
     return accepted
-end 
+end
 
 function Challenge:ShowFloatingText(text)
     -- Erstelle einen neuen Frame falls er noch nicht existiert
@@ -721,24 +705,24 @@ function Challenge:ShowFloatingText(text)
         self.floatingFrame = CreateFrame("Frame", "NexusManagerFloatingText", UIParent)
         self.floatingFrame:SetSize(400, 50)
         self.floatingFrame:SetPoint("TOP", UIParent, "CENTER", 0, 100)
-        
+
         -- Erstelle das Text Label
         self.floatingFrame.text = self.floatingFrame:CreateFontString(nil, "OVERLAY")
         self.floatingFrame.text:SetPoint("CENTER")
         self.floatingFrame.text:SetFont("Fonts\\FRIZQT__.TTF", 32, "OUTLINE")
     end
-    
+
     -- Setze den Text
     self.floatingFrame.text:SetText(text)
     self.floatingFrame:Show()
-    
+
     -- Animation
     self.floatingFrame:SetAlpha(0)
     self.floatingFrame:Show()
-    
+
     -- Fade In
     UIFrameFadeIn(self.floatingFrame, 0.5, 0, 1)
-    
+
     -- Nach 2 Sekunden Fade Out
     C_Timer.After(2, function()
         UIFrameFadeOut(self.floatingFrame, 0.5, 1, 0)
@@ -747,7 +731,7 @@ function Challenge:ShowFloatingText(text)
             self.floatingFrame:Hide()
         end)
     end)
-    
+
     -- Spiele einen Sound ab (optional)
     PlaySound(SOUNDKIT.RAID_WARNING)
 end

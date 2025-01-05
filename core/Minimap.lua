@@ -32,7 +32,11 @@ function Minimap:OnInitialize()
         OnClick = function(_, button)
             if button == "LeftButton" then
                 -- Toggle main window
-                NM:OpenNexusManager(nil)
+                if IsControlKeyDown() then
+                    NM.LogFrame:Show()
+                else
+                    NM:OpenNexusManager(nil)
+                end
             elseif button == "RightButton" then
                 -- Open options
                 Settings.OpenToCategory("NexusManager")

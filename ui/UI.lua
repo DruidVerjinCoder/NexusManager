@@ -284,7 +284,6 @@ function NM:CreateMainFrame(tabIndex)
         local tabContainers = {}
 
         for i = 1, #tabNames do
-            print("Create Container for " .. tabNames[i])
             local tabContainer = AceGUI:Create("SimpleGroup")
             tabContainer:SetLayout("Fill")
             tabContainer:SetHeight(200);
@@ -332,7 +331,7 @@ function NM:CreateMainFrame(tabIndex)
                         end
                         NM.currentTab = "items"
                     elseif j == 4 then
-                        tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -50)
+                        tabContent.frame:SetPoint("TOPLEFT", mainFrameName, "TOPLEFT", 10, -25)
                         if not NM.ui.challenge then
                             NM.ui.challenge = NM.ChallengeTab:Create()
                         end

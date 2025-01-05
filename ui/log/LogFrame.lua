@@ -56,20 +56,22 @@ function LogFrame:SortBy(columnKey)
         self.currentSort.column = columnKey
         self.currentSort.ascending = true
     end
-    
+
     self:UpdateLogDisplay()
     self:UpdateSortIndicators()
 end
 
 -- Am Anfang der Datei nach den Imports:
 LogFrame.currentFilter = {
-    category = nil,  -- nil bedeutet "Alle"
+    category = nil, -- nil bedeutet "Alle"
     searchText = ""
 }
 
 local function FormatMetadata(metadata)
-    if not metadata then return "" end
-    
+    if not metadata then
+        return ""
+    end
+
     local parts = {}
     for key, value in pairs(metadata) do
         if type(value) == "table" then
@@ -83,7 +85,7 @@ local function FormatMetadata(metadata)
             table.insert(parts, key .. "=" .. tostring(value))
         end
     end
-    
+
     return table.concat(parts, " | ")
 end
 
@@ -108,7 +110,7 @@ local function SerializeValue(val)
             end
             maxIndex = max(maxIndex, k)
         end
-        
+
         if isArray then
             for i = 1, maxIndex do
                 table.insert(parts, SerializeValue(val[i]))
@@ -126,7 +128,7 @@ end
 
 function LogFrame:ExportLogsAsJSON()
     local logsToExport = {}
-    
+
     for _, log in ipairs(NM.logs) do
         -- Erstelle eine kopie des logs mit formatierter Zeit
         table.insert(logsToExport, {
@@ -136,17 +138,17 @@ function LogFrame:ExportLogsAsJSON()
             metadata = log.metadata
         })
     end
-    
+
     -- Konvertiere zu JSON mit unserer eigenen Funktion
     local json = SerializeValue(logsToExport)
-    
+
     -- Erstelle ein neues Fenster für den Export
     local exportFrame = AceGUI:Create("Frame")
     exportFrame:SetTitle(L["Export Logs"])
     exportFrame:SetLayout("Fill")
     exportFrame:SetWidth(600)
     exportFrame:SetHeight(400)
-    
+
     -- Erstelle ein Editbox für den JSON-Text
     local editBox = AceGUI:Create("MultiLineEditBox")
     editBox:SetLabel(L["Copy the following text:"])
@@ -165,39 +167,45 @@ function LogFrame:Show()
         self:UpdateLogDisplay()
         return
     end
-    
+
     NM:Log("DEBUG", "LogFrame: Creating new frame")
     local frame = AceGUI:Create("Frame")
     frame:SetTitle(L["Log Viewer"])
     frame:SetLayout("Flow")
     frame:SetWidth(self.WINDOW_CONFIG.CONTAINER_WIDTH)
     frame:SetHeight(self.WINDOW_CONFIG.CONTAINER_HEIGHT)
-    
+
     -- Verstecke die Resize-Elemente
-    if frame.sizer_se then frame.sizer_se:Hide() end
-    if frame.sizer_s then frame.sizer_s:Hide() end
-    if frame.sizer_e then frame.sizer_e:Hide() end
-    
+    if frame.sizer_se then
+        frame.sizer_se:Hide()
+    end
+    if frame.sizer_s then
+        frame.sizer_s:Hide()
+    end
+    if frame.sizer_e then
+        frame.sizer_e:Hide()
+    end
+
     self.frame = frame
-    
+
     -- Filter Container
     local filterContainer = AceGUI:Create("SimpleGroup")
     filterContainer:SetLayout("Flow")
     filterContainer:SetFullWidth(true)
     filterContainer:SetHeight(30)
-    
+
     -- Kategorie Filter Dropdown
     local categoryFilter = AceGUI:Create("Dropdown")
     categoryFilter:SetLabel(L["Category"])
     categoryFilter:SetWidth(200)
     categoryFilter:SetRelativeWidth(0.2)
-    
+
     -- Erstelle Liste aller Kategorien
     local categories = {
         [""] = L["All Categories"]
     }
     for _, category in pairs(self.CATEGORIES) do
-        local displayName = category:sub(1,1) .. category:sub(2):lower()
+        local displayName = category:sub(1, 1) .. category:sub(2):lower()
         categories[category] = displayName
     end
     categoryFilter:SetList(categories)
@@ -207,12 +215,12 @@ function LogFrame:Show()
         self:UpdateLogDisplay()
     end)
     filterContainer:AddChild(categoryFilter)
-    
+
     -- Spacer zwischen Dropdown und Suchfeld
     local spacer1 = AceGUI:Create("Label")
     spacer1:SetWidth(20)
     filterContainer:AddChild(spacer1)
-    
+
     -- Suchfeld
     local searchBox = AceGUI:Create("EditBox")
     searchBox:SetLabel(L["Search"])
@@ -223,94 +231,96 @@ function LogFrame:Show()
         self:UpdateLogDisplay()
     end)
     filterContainer:AddChild(searchBox)
-    
+
     -- Spacer zwischen Suchfeld und Eintragsanzahl
     local spacer2 = AceGUI:Create("Label")
     spacer2:SetWidth(20)
     filterContainer:AddChild(spacer2)
-    
+
     -- Anzeige der Eintragsanzahl
     self.filterInfo = AceGUI:Create("Label")
     self.filterInfo:SetWidth(150)
     self.filterInfo:SetRelativeWidth(0.15)  -- 15% der verfügbaren Breite
     filterContainer:AddChild(self.filterInfo)
-    
+
     -- Spacer zwischen filterInfo und Clear-Button
     local spacer3 = AceGUI:Create("Label")
     spacer3:SetWidth(20)
     filterContainer:AddChild(spacer3)
-    
+
     -- Clear Button
-    local clearButton = AceGUI:Create("Button")
-    clearButton:SetText(L["Clear"])
-    clearButton:SetWidth(100)
-    clearButton:SetRelativeWidth(0.1)
-    clearButton:SetCallback("OnClick", function()
+    local clearButton = NM.UIFunctions:createButton(L["Clear"], 100, function()
         NM.logs = {}
         self:UpdateLogDisplay()
     end)
+    clearButton:SetRelativeWidth(0.1)
     filterContainer:AddChild(clearButton)
-    
+
     -- Spacer zwischen Clear-Button und Export-Button
     local spacer4 = AceGUI:Create("Label")
     spacer4:SetWidth(20)
     filterContainer:AddChild(spacer4)
-    
+
     -- Export Button
-    local exportButton = AceGUI:Create("Button")
-    exportButton:SetText(L["Export"])
-    exportButton:SetWidth(100)
-    exportButton:SetRelativeWidth(0.1)
-    exportButton:SetCallback("OnClick", function()
+    local exportButton = NM.UIFunctions:createButton(L["Export"], 100, function()
         self:ExportLogsAsJSON()
     end)
+    exportButton:SetRelativeWidth(0.1)
     filterContainer:AddChild(exportButton)
-    
+
     frame:AddChild(filterContainer)
-    
+
     -- Spacer zwischen Filter-Container und Header
     local spacerBeforeHeader = AceGUI:Create("SimpleGroup")
     spacerBeforeHeader:SetFullWidth(true)
     spacerBeforeHeader:SetHeight(10)
     frame:AddChild(spacerBeforeHeader)
-    
+
     -- Header Container
     local headerContainer = AceGUI:Create("SimpleGroup")
     headerContainer:SetLayout("Flow")
     headerContainer:SetFullWidth(true)
     headerContainer:SetHeight(self.WINDOW_CONFIG.HEADER_HEIGHT)
     headerContainer.frame:SetWidth(self.WINDOW_CONFIG.CONTAINER_WIDTH - 20)
-    
+
     -- Zeit Header
     self.timeHeader = AceGUI:Create("InteractiveLabel")
     self.timeHeader:SetText(self.WINDOW_CONFIG.COLUMNS.TIME.name)
     self.timeHeader:SetWidth(self.WINDOW_CONFIG.COLUMNS.TIME.width)
-    self.timeHeader:SetCallback("OnClick", function() self:SortBy("TIME") end)
+    self.timeHeader:SetCallback("OnClick", function()
+        self:SortBy("TIME")
+    end)
     headerContainer:AddChild(self.timeHeader)
-    
+
     -- Kategorie Header
     self.categoryHeader = AceGUI:Create("InteractiveLabel")
     self.categoryHeader:SetText(self.WINDOW_CONFIG.COLUMNS.CATEGORY.name)
     self.categoryHeader:SetWidth(self.WINDOW_CONFIG.COLUMNS.CATEGORY.width)
-    self.categoryHeader:SetCallback("OnClick", function() self:SortBy("CATEGORY") end)
+    self.categoryHeader:SetCallback("OnClick", function()
+        self:SortBy("CATEGORY")
+    end)
     headerContainer:AddChild(self.categoryHeader)
-    
+
     -- Message Header
     self.messageHeader = AceGUI:Create("InteractiveLabel")
     self.messageHeader:SetText(self.WINDOW_CONFIG.COLUMNS.MESSAGE.name)
     self.messageHeader:SetWidth(self.WINDOW_CONFIG.COLUMNS.MESSAGE.width)
-    self.messageHeader:SetCallback("OnClick", function() self:SortBy("MESSAGE") end)
+    self.messageHeader:SetCallback("OnClick", function()
+        self:SortBy("MESSAGE")
+    end)
     headerContainer:AddChild(self.messageHeader)
-    
+
     -- Data Header
     self.dataHeader = AceGUI:Create("InteractiveLabel")
     self.dataHeader:SetText(self.WINDOW_CONFIG.COLUMNS.DATA.name)
     self.dataHeader:SetWidth(self.WINDOW_CONFIG.COLUMNS.DATA.width)
-    self.dataHeader:SetCallback("OnClick", function() self:SortBy("DATA") end)
+    self.dataHeader:SetCallback("OnClick", function()
+        self:SortBy("DATA")
+    end)
     headerContainer:AddChild(self.dataHeader)
-    
+
     frame:AddChild(headerContainer)
-    
+
     -- Scrollframe für Logs
     self.scrollframe = AceGUI:Create("ScrollFrame")
     self.scrollframe:SetLayout("List")
@@ -318,48 +328,43 @@ function LogFrame:Show()
     self.scrollframe:SetHeight(self.WINDOW_CONFIG.CONTAINER_HEIGHT - self.WINDOW_CONFIG.HEADER_HEIGHT - 120)
     self.scrollframe.frame:SetWidth(self.WINDOW_CONFIG.CONTAINER_WIDTH - 20)
     frame:AddChild(self.scrollframe)
-    
+
     -- Nur EINMAL beim ersten Öffnen die Logs laden
     self:UpdateLogDisplay()
-    NM:Log("DEBUG", "LogFrame: Initial log display complete", {count = #NM.logs})
 end
 
 function LogFrame:UpdateLogDisplay()
-    if not self.scrollframe then 
-        NM:Log("DEBUG", "LogFrame: No scrollframe available")
-        return 
+    if not self.scrollframe then
+        return
     end
-    
-    NM:Log("DEBUG", "LogFrame: Starting log display update")
+
     self.scrollframe:ReleaseChildren()
-    
+
     local logsList = {}
-    
+
     -- Filtere Logs basierend auf Kategorie und Suchtext
     for _, log in ipairs(NM.logs) do
-        local matchesCategory = not self.currentFilter.category or 
-                              log.category:upper() == self.currentFilter.category:upper()
-        local matchesSearch = self.currentFilter.searchText == "" or 
-                            log.message:lower():find(self.currentFilter.searchText, 1, true) or
-                            FormatMetadata(log.metadata):lower():find(self.currentFilter.searchText, 1, true)
-        
+        local matchesCategory = not self.currentFilter.category or
+                log.category:upper() == self.currentFilter.category:upper()
+        local matchesSearch = self.currentFilter.searchText == "" or
+                log.message:lower():find(self.currentFilter.searchText, 1, true) or
+                FormatMetadata(log.metadata):lower():find(self.currentFilter.searchText, 1, true)
+
         if matchesCategory and matchesSearch then
             table.insert(logsList, log)
         end
     end
-    
-    NM:Log("DEBUG", "LogFrame: Filtered logs", {total = #NM.logs, filtered = #logsList})
-    
+
     -- Update Anzahl der Einträge im Filter-Info Label
     if self.filterInfo then
         self.filterInfo:SetText(string.format(L["Showing %d entries"], #logsList))
     end
-    
+
     -- Sortiere gefilterte Liste
     if self.currentSort then
         table.sort(logsList, function(a, b)
             local aValue, bValue
-            
+
             if self.currentSort.column == "TIME" then
                 aValue = a.timestamp
                 bValue = b.timestamp
@@ -373,7 +378,7 @@ function LogFrame:UpdateLogDisplay()
                 aValue = FormatMetadata(a.metadata)
                 bValue = FormatMetadata(b.metadata)
             end
-            
+
             if self.currentSort.ascending then
                 return aValue < bValue
             else
@@ -381,7 +386,7 @@ function LogFrame:UpdateLogDisplay()
             end
         end)
     end
-    
+
     -- Zeige gefilterte und sortierte Logs
     for _, log in ipairs(logsList) do
         local row = AceGUI:Create("SimpleGroup")
@@ -389,71 +394,71 @@ function LogFrame:UpdateLogDisplay()
         row:SetFullWidth(true)
         row:SetHeight(self.WINDOW_CONFIG.ROW_HEIGHT)
         row.frame:SetWidth(self.WINDOW_CONFIG.CONTAINER_WIDTH - 20)
-        
+
         -- Container für alle Spalten
         local contentGroup = AceGUI:Create("SimpleGroup")
         contentGroup:SetLayout("Flow")
         contentGroup:SetFullWidth(true)
         contentGroup:SetHeight(self.WINDOW_CONFIG.ROW_HEIGHT)
-        
+
         -- Zeit
         local time = AceGUI:Create("Label")
         time:SetText(date("%H:%M:%S", log.timestamp))
         time:SetWidth(self.WINDOW_CONFIG.COLUMNS.TIME.width)
         time.label:SetJustifyH("LEFT")
         contentGroup:AddChild(time)
-        
+
         -- Kategorie
         local category = AceGUI:Create("Label")
         category:SetText(log.category)
         category:SetWidth(self.WINDOW_CONFIG.COLUMNS.CATEGORY.width)
         category.label:SetJustifyH("LEFT")
         contentGroup:AddChild(category)
-        
+
         -- Message
         local message = AceGUI:Create("Label")
         message:SetText(log.message)
         message:SetWidth(self.WINDOW_CONFIG.COLUMNS.MESSAGE.width)
         message.label:SetJustifyH("LEFT")
         contentGroup:AddChild(message)
-        
+
         -- Data-Spalte
         local dataContainer = AceGUI:Create("SimpleGroup")
         dataContainer:SetLayout("Fill")
         dataContainer:SetWidth(self.WINDOW_CONFIG.COLUMNS.DATA.width)
         dataContainer:SetHeight(self.WINDOW_CONFIG.ROW_HEIGHT)
-        
+
         local dataText = AceGUI:Create("Label")
-        
+
         -- Formatiere den Text basierend auf der Kategorie
         local displayText = ""
         if log.category == "ITEM" and log.metadata and log.metadata.itemLink then
             local itemData = log.metadata.itemData or {}
-            
+
             displayText = string.format(
-                "%s | Qty: %d | iLvl: %s | %s | %s | %s",
-                log.metadata.itemLink or "N/A",
-                log.metadata.count or 1,
-                itemData.ilvl or "N/A",
-                itemData.quality or "N/A",
-                itemData.type or "N/A",
-                itemData.subType or "N/A"
+                    "%s | Qty: %d | iLvl: %s | %s | %s | %s",
+                    log.metadata.itemLink or "N/A",
+                    log.metadata.count or 1,
+                    itemData.ilvl or "N/A",
+                    itemData.quality or "N/A",
+                    itemData.type or "N/A",
+                    itemData.subType or "N/A"
             )
         else
             displayText = FormatMetadata(log.metadata)
         end
-        
+
         dataText:SetText(displayText)
         dataText:SetWidth(self.WINDOW_CONFIG.COLUMNS.DATA.width)
         dataText.label:SetJustifyH("LEFT")
         dataText.label:SetWordWrap(true)
-        
+
         dataContainer:AddChild(dataText)
         contentGroup:AddChild(dataContainer)
         row:AddChild(contentGroup)
         self.scrollframe:AddChild(row)
     end
-    
+
     NM:Log("DEBUG", "LogFrame: Display update complete")
 end
 
@@ -463,12 +468,12 @@ function LogFrame:UpdateSortIndicators()
     local categoryText = self.WINDOW_CONFIG.COLUMNS.CATEGORY.name
     local messageText = self.WINDOW_CONFIG.COLUMNS.MESSAGE.name
     local dataText = self.WINDOW_CONFIG.COLUMNS.DATA.name
-    
+
     if self.currentSort then
-        local arrow = self.currentSort.ascending and 
-            "|TInterface/BUTTONS/Arrow-Up-Up:12:12:0:0:1:1|t" or
-            "|TInterface/BUTTONS/Arrow-Down-Up:12:12:0:0:1:1|t"
-        
+        local arrow = self.currentSort.ascending and
+                "|TInterface/BUTTONS/Arrow-Up-Up:12:12:0:0:1:1|t" or
+                "|TInterface/BUTTONS/Arrow-Down-Up:12:12:0:0:1:1|t"
+
         if self.currentSort.column == "TIME" then
             timeText = timeText .. "  " .. arrow
         elseif self.currentSort.column == "CATEGORY" then
@@ -479,7 +484,7 @@ function LogFrame:UpdateSortIndicators()
             dataText = dataText .. "  " .. arrow
         end
     end
-    
+
     self.timeHeader:SetText(timeText)
     self.categoryHeader:SetText(categoryText)
     self.messageHeader:SetText(messageText)
@@ -493,22 +498,24 @@ function LogFrame:Hide()
 end
 
 function LogFrame:AddLog(category, message, metadata)
-    if not message then return end
-    
+    if not message then
+        return
+    end
+
     local upperCategory = category and category:upper() or self.CATEGORIES.SYSTEM
-    
+
     -- Wenn es ein Item ist, sammle zusätzliche Item-Daten
     if upperCategory == "ITEM" and metadata and metadata.itemLink then
         metadata.itemData = self:GetItemData(metadata.itemLink)
     end
-    
+
     local logEntry = {
         timestamp = time(),
         category = upperCategory,
         message = message,
         metadata = metadata or {}
     }
-    
+
     table.insert(NM.logs, logEntry)
 end
 
@@ -523,14 +530,18 @@ end
 
 -- Hilfsfunktion zum Sammeln von Item-Informationen (am Anfang der Datei nach den Kategorien)
 function LogFrame:GetItemData(itemLink)
-    if not itemLink then return nil end
-    
+    if not itemLink then
+        return nil
+    end
+
     local itemID = itemLink:match("item:(%d+)")
-    if not itemID then return nil end
-    
-    local itemName, _, itemRarity, itemLevel, itemMinLevel, itemType, 
-          itemSubType, _, itemEquipLoc, itemTexture = C_Item.GetItemInfo(itemLink)
-    
+    if not itemID then
+        return nil
+    end
+
+    local itemName, _, itemRarity, itemLevel, itemMinLevel, itemType,
+    itemSubType, _, itemEquipLoc, itemTexture = C_Item.GetItemInfo(itemLink)
+
     return {
         id = itemID,
         name = itemName,

@@ -12,7 +12,7 @@ local ChallengeTab = {
         },
         BUTTON_WIDTH = 150
     },
-    
+
     ICONS = {
         PENDING = "Interface\\COMMON\\Indicator-Yellow",
         ACCEPTED = "Interface\\RAIDFRAME\\ReadyCheck-Ready",
@@ -25,23 +25,53 @@ function ChallengeTab:Create()
     local container = AceGUI:Create("SimpleGroup")
     container:SetLayout("Flow")
     container:SetFullWidth(true)
-    container:SetHeight(400)
-    
-    -- Scroll Container für alles
+    container:SetHeight(350)
+
+    -- Scroll Container
     local scrollContainer = AceGUI:Create("ScrollFrame")
     scrollContainer:SetLayout("Flow")
     scrollContainer:SetFullWidth(true)
-    scrollContainer:SetHeight(400)
+    scrollContainer:SetHeight(350)
     container:AddChild(scrollContainer)
-    
+
+    -- Timer Container
+    local timerContainer = AceGUI:Create("SimpleGroup")
+    timerContainer:SetLayout("Flow")
+    timerContainer:SetFullWidth(true)
+    timerContainer:SetHeight(40)
+
+    -- Spacer für Zentrierung
+    local leftSpacer = AceGUI:Create("Label")
+    leftSpacer:SetText("")
+    leftSpacer:SetWidth(350)
+    timerContainer:AddChild(leftSpacer)
+
+    -- Timer Label
+    local timerLabel = AceGUI:Create("Label")
+    timerLabel:SetText("00:00:00")
+    timerLabel:SetWidth(200)
+    timerLabel:SetFont("Fonts\\FRIZQT__.TTF", 24, "OUTLINE")
+    timerLabel:SetJustifyH("CENTER")
+    timerContainer:AddChild(timerLabel)
+
+    -- Speichere die Referenz
+    self.timerLabel = timerLabel
+
+    local rightSpacer = AceGUI:Create("Label")
+    rightSpacer:SetText("")
+    rightSpacer:SetWidth(350)
+    timerContainer:AddChild(rightSpacer)
+
+    scrollContainer:AddChild(timerContainer)
+
     -- Duration Input
     local durationInput = AceGUI:Create("EditBox")
     durationInput:SetLabel(L["Duration (minutes)"])
-    durationInput:SetWidth(150)
-    durationInput:SetText("30") -- Standard: 30 Minuten
-    durationInput:SetMaxLetters(4) -- Maximal 4 Ziffern (9999 Minuten)
+    durationInput:SetWidth(120)
+    durationInput:SetText("30")
+    durationInput:SetMaxLetters(4)
 
-    -- Reset Button neben Duration Input
+    -- Reset Button
     local resetButton = AceGUI:Create("Button")
     resetButton:SetText(L["Reset"])
     resetButton:SetWidth(80)
@@ -54,67 +84,46 @@ function ChallengeTab:Create()
                 key = NM.Challenge.key  -- Sende den Key mit
             })
         end
-        
+
         -- Führe lokalen Reset durch
         if NM.Challenge then
             NM.Challenge:Reset()
         end
-        
+
         -- UI auf initialen Status zurücksetzen
         container:UpdateUIState("initial", false)
     end)
 
-    -- Füge Duration Input und Reset Button nebeneinander hinzu
+    -- Input Group
     local inputGroup = AceGUI:Create("SimpleGroup")
     inputGroup:SetLayout("Flow")
     inputGroup:SetFullWidth(true)
+    inputGroup:SetHeight(40)
     inputGroup:AddChild(durationInput)
     inputGroup:AddChild(resetButton)
     scrollContainer:AddChild(inputGroup)
-    
-    -- Deaktiviere das Input wenn die Challenge läuft
-    if NM.Challenge and NM.Challenge.state == "running" then
-        durationInput:SetDisabled(true)
-    end
-    
+
     -- Button Container
     local buttonContainer = AceGUI:Create("SimpleGroup")
     buttonContainer:SetLayout("Flow")
     buttonContainer:SetFullWidth(true)
+    buttonContainer:SetHeight(30)
     scrollContainer:AddChild(buttonContainer)
-    
-    -- Participants List with Rankings (initial versteckt)
+
+    -- Participants Container
     local participantsContainer = AceGUI:Create("InlineGroup")
     participantsContainer:SetTitle(L["Participants"])
     participantsContainer:SetLayout("List")
-    participantsContainer:SetFullWidth(true)
+    participantsContainer:SetWidth(600)
     participantsContainer.frame:Hide()
-    
-    -- Scroll Frame für die Teilnehmerliste
+
+    -- Participants Scroll
     local participantsScroll = AceGUI:Create("ScrollFrame")
     participantsScroll:SetLayout("List")
     participantsScroll:SetFullWidth(true)
-    participantsScroll:SetHeight(150)
+    participantsScroll:SetHeight(115)
     participantsContainer:AddChild(participantsScroll)
-    
-    -- Timer Container
-    local timerContainer = AceGUI:Create("SimpleGroup")
-    timerContainer:SetLayout("Flow")
-    timerContainer:SetFullWidth(true)
-    timerContainer:SetHeight(30)
-    scrollContainer:AddChild(timerContainer)
 
-    -- Timer Label
-    local timerLabel = AceGUI:Create("Label")
-    timerLabel:SetText("00:00:00")
-    timerLabel:SetWidth(200)
-    timerLabel:SetFont("Fonts\\FRIZQT__.TTF", 20, "OUTLINE")
-    timerContainer:AddChild(timerLabel)
-
-    -- Speichere Timer-Referenz
-    self.timerLabel = timerLabel
-    self.timerTicker = nil
-    
     -- Challenge Control Buttons nebeneinander
     -- Start Button zuerst erstellen
     local startButton = AceGUI:Create("Button")
@@ -155,16 +164,16 @@ function ChallengeTab:Create()
             duration = NM.Challenge.duration,
             startTime = GetTime()
         })
-        
+
         -- Update UI Status auf "running"
         container:UpdateUIState("running", true)
-        
+
         -- Aktualisiere die Teilnehmerliste
         container:UpdateParticipants(NM.Challenge.participants, NM.Challenge.results)
-        
+
         -- Starte lokalen Timer
         ChallengeTab:StartTimer(NM.Challenge.duration)
-        
+
         -- Sende Timer-Start an alle Teilnehmer
         if NM.Challenge then
             NM.Challenge:BroadcastMessage("CHALLENGE_TIMER_START", {
@@ -172,10 +181,10 @@ function ChallengeTab:Create()
                 startTime = GetTime()
             })
         end
-        
+
         -- Starte regelmäßige Updates
         if not NM.Challenge.updateTimer then
-            NM.Challenge.updateTimer = C_Timer.NewTicker(1, function()
+            NM.Challenge.updateTimer = C_Timer.NewTicker(5, function()
                 if NM.session and NM.session.state == "running" then
                     NM.session:SendChallengeUpdate()
                 end
@@ -183,27 +192,27 @@ function ChallengeTab:Create()
         end
     end)
     buttonContainer:AddChild(startButton)
-    
+
     -- Dann den Invite Button
     local inviteButton = AceGUI:Create("Button")
     inviteButton:SetText(L["Send Invites"])
     inviteButton:SetWidth(self.WINDOW_CONFIG.BUTTON_WIDTH)
     inviteButton:SetCallback("OnClick", function()
-        local duration =  NM.Challenge.duration
+        local duration = NM.Challenge.duration
         if duration then
             NM.Challenge:SendInvites(duration)
             if not participantsContainer.parent then
                 scrollContainer:AddChild(participantsContainer)
             end
             participantsContainer.frame:Show()
-            
+
             -- Host wird sofort als Teilnehmer hinzugefügt und als Leader markiert
             local playerName = UnitName("player")
             if not NM.Challenge.participants[playerName] then
                 NM.Challenge.participants[playerName] = {
                     accepted = true,
                     isHost = true,
-                    isLeader = true,  -- Explizit als Leader markieren
+                    isLeader = true, -- Explizit als Leader markieren
                     online = true
                 }
                 -- UI sofort aktualisieren mit Leader-Status
@@ -215,14 +224,14 @@ function ChallengeTab:Create()
         end
     end)
     buttonContainer:AddChild(inviteButton)
-    
+
     -- Update Functions
     function container:UpdateParticipants(participants, results)
         participantsScroll:ReleaseChildren()
-        
+
         -- Stelle sicher, dass results existiert
         results = results or {}
-        
+
         -- Sortiere Teilnehmer nach LIV
         local sortedParticipants = {}
         for name, data in pairs(participants) do
@@ -235,34 +244,36 @@ function ChallengeTab:Create()
                     lootedGold = 0
                 }
             end
-            
+
             table.insert(sortedParticipants, {
                 name = name,
                 data = data,
                 liv = results[name].liv or 0
             })
         end
-        table.sort(sortedParticipants, function(a, b) return a.liv > b.liv end)
-        
+        table.sort(sortedParticipants, function(a, b)
+            return a.liv > b.liv
+        end)
+
         -- Erstelle Einträge
         for rank, participant in ipairs(sortedParticipants) do
             local playerRow = AceGUI:Create("SimpleGroup")
             playerRow:SetLayout("Flow")
             playerRow:SetFullWidth(true)
-            
+
             -- Rang
             local rankLabel = AceGUI:Create("Label")
             rankLabel:SetText(rank .. ".")
             rankLabel:SetWidth(30)
             playerRow:AddChild(rankLabel)
-            
+
             -- Status Icon nur anzeigen, wenn Challenge noch nicht gestartet ist
             if NM.Challenge.state ~= "running" then
                 local statusIcon = AceGUI:Create("Icon")
                 statusIcon:SetWidth(12)
                 statusIcon:SetHeight(12)
                 statusIcon:SetImageSize(12, 12)
-                
+
                 local iconPath
                 if not participant.data.online then
                     iconPath = ChallengeTab.ICONS.OFFLINE
@@ -273,11 +284,11 @@ function ChallengeTab:Create()
                 else
                     iconPath = ChallengeTab.ICONS.PENDING
                 end
-                
+
                 statusIcon:SetImage(iconPath)
                 playerRow:AddChild(statusIcon)
             end
-            
+
             -- Spielername (mit Host-Markierung)
             local nameLabel = AceGUI:Create("Label")
             local displayName = participant.name
@@ -287,13 +298,13 @@ function ChallengeTab:Create()
             nameLabel:SetText(displayName)
             nameLabel:SetWidth(150)
             playerRow:AddChild(nameLabel)
-            
+
             -- LIV (vereinfacht)
             local livLabel = AceGUI:Create("Label")
             livLabel:SetText(NM.UIFunctions:FormatGold(participant.liv))
             livLabel:SetWidth(100)
             playerRow:AddChild(livLabel)
-            
+
             -- Details Icon (immer anzeigen)
             local detailIcon = AceGUI:Create("Icon")
             detailIcon:SetWidth(16)
@@ -304,7 +315,7 @@ function ChallengeTab:Create()
                 NM.ChallengeTab:ShowItemDetails(participant.name)
             end)
             playerRow:AddChild(detailIcon)
-            
+
             participantsScroll:AddChild(playerRow)
         end
 
@@ -312,11 +323,13 @@ function ChallengeTab:Create()
             NM.Challenge:BroadcastMessage("UPDATE_PARTICIPANTS", participants)
         end
     end
-    
+
     -- Neue UpdateResults Funktion
     function container:UpdateResults(sortedResults)
-        if not sortedResults then return end
-        
+        if not sortedResults then
+            return
+        end
+
         -- Aktualisiere die Anzeige der Ergebnisse
         -- Zeige Platzierung, Name, LIV und optional Items/Gold
         for i, result in ipairs(sortedResults) do
@@ -325,53 +338,40 @@ function ChallengeTab:Create()
             -- Platz #i: result.player - LIV: result.liv
         end
     end
-    
-   
-    
-    -- Key Gruppe
-    local keyGroup = AceGUI:Create("SimpleGroup")
-    keyGroup:SetLayout("Flow")
-    keyGroup:SetFullWidth(true)
 
-    -- Erstelle die UI-Elemente für den Key
-    local keyLabel = AceGUI:Create("Label")
-    keyLabel:SetText(L["Challenge Key"] .. ": ")
-    keyLabel:SetWidth(100)
-    keyGroup:AddChild(keyLabel)
-
-    local keyBox = AceGUI:Create("EditBox")
-    keyBox:SetLabel(L["Challenge Key"])
-    keyBox:SetWidth(150)
-    self.keyBox = keyBox
-
-    local keyButton = AceGUI:Create("Button")
-    keyButton:SetText(L["Join"])
-    keyButton:SetWidth(80)
-    keyButton:SetCallback("OnClick", function()
-        -- Hole den Key aus der Input Box
-        local key = keyBox:GetText()
-        if key and key ~= "" then
-            NM.Challenge:Join(key)
-        else
-            NM:Print(L["Please enter a challenge key"])
-        end
-    end)
-    self.keyButton = keyButton
-
-    keyGroup:AddChild(keyBox)
-    keyGroup:AddChild(keyButton)
-
-    scrollContainer:AddChild(keyGroup)
-    
     -- Füge eine Trennlinie hinzu
     local divider = AceGUI:Create("Heading")
     divider:SetFullWidth(true)
     scrollContainer:AddChild(divider)
-    
-    NM.ui.challenge = container
+
+    -- Challenge Key
+    local keyBox = AceGUI:Create("EditBox")
+    keyBox:SetLabel(L["Challenge Key"])
+    keyBox:SetWidth(120)
+
+    -- Join Button
+    local keyButton = AceGUI:Create("Button")
+    keyButton:SetText(L["Join"])
+    keyButton:SetWidth(60)
+    keyButton:SetCallback("OnClick", function()
+        local key = keyBox:GetText()
+        if key and key ~= "" then
+            NM.Challenge:JoinChallenge(key)
+        end
+    end)
+
+    -- Key Container
+    local keyContainer = AceGUI:Create("SimpleGroup")
+    keyContainer:SetLayout("Flow")
+    keyContainer:SetFullWidth(true)
+    keyContainer:SetHeight(40)
+    keyContainer:AddChild(keyBox)
+    keyContainer:AddChild(keyButton)
+    scrollContainer:AddChild(keyContainer)
 
     -- Speichere Referenzen auf die Key-UI-Elemente
     self.keyBox = keyBox
+    self.keyButton = keyButton
 
     -- Wenn bereits ein Key existiert, zeige ihn an
     if NM.Challenge and NM.Challenge.key then
@@ -379,19 +379,19 @@ function ChallengeTab:Create()
     end
 
 
-     -- UI State Updates
-     function container:UpdateUIState(state, isHost)
+    -- UI State Updates
+    function container:UpdateUIState(state, isHost)
         -- Zeige/Verstecke UI Elemente basierend auf dem Status
         if state == "initial" then
             -- Verstecke Teilnehmerliste
             if participantsContainer then
                 participantsContainer.frame:Hide()
             end
-            
+
             -- Reset UI Elements
             durationInput:SetDisabled(false)
             durationInput:SetText("30")
-            
+
             -- Reset Buttons
             if startButton then
                 startButton:SetDisabled(true)
@@ -399,8 +399,8 @@ function ChallengeTab:Create()
             if inviteButton then
                 inviteButton:SetDisabled(false)
             end
-            
-            
+
+
             -- Reset Key und Join Button
             if self.keyBox then
                 self.keyBox:SetText("")
@@ -410,28 +410,28 @@ function ChallengeTab:Create()
                 self.keyButton:SetText(L["Join"])
                 self.keyButton:SetDisabled(false)
             end
-            
+
         elseif state == "inviting" then
             if not participantsContainer.parent then
                 scrollContainer:AddChild(participantsContainer)
             end
             participantsContainer.frame:Show()
-            
+
             -- UI Status
             durationInput:SetDisabled(true)
             inviteButton:SetDisabled(true)
-            
+
             -- Prüfe explizit ob wir der Host sind
             local playerName = UnitName("player")
             local isHost = NM.Challenge.participants[playerName] and NM.Challenge.participants[playerName].isHost
-            
+
             -- Start Button ist aktiv für Leader/Host
             if isHost then
                 startButton:SetDisabled(false)
             else
                 startButton:SetDisabled(true)
             end
-            
+
             -- Deaktiviere Key Input und Join Button während einer Challenge
             if self.keyBox then
                 self.keyBox:SetDisabled(true)
@@ -439,23 +439,23 @@ function ChallengeTab:Create()
             if self.keyButton then
                 self.keyButton:SetDisabled(true)
             end
-            
+
         elseif state == "running" then
             if not participantsContainer.parent then
                 scrollContainer:AddChild(participantsContainer)
             end
             participantsContainer.frame:Show()
-            
+
             -- Alle Buttons deaktivieren im "running" Status
             durationInput:SetDisabled(true)
             inviteButton:SetDisabled(true)
             startButton:SetDisabled(true)
-            
+
             -- Aktualisiere auch den Challenge-Status
             if NM.Challenge then
                 NM.Challenge.state = "running"
             end
-            
+
             -- Deaktiviere Key Input und Join Button während einer Challenge
             if self.keyBox then
                 self.keyBox:SetDisabled(true)
@@ -463,7 +463,7 @@ function ChallengeTab:Create()
             if self.keyButton then
                 self.keyButton:SetDisabled(true)
             end
-            
+
         else
             -- Kein aktiver Challenge-Status
             if participantsContainer.parent then
@@ -475,7 +475,7 @@ function ChallengeTab:Create()
             startButton:SetDisabled(true)
         end
     end
-    
+
     -- Initial UI State
     container:UpdateUIState(nil, false)
 
@@ -496,7 +496,9 @@ function ChallengeTab:OnStartButtonClick()
 end
 
 function ChallengeTab:UpdateParticipants(participants, results)
-    if not self.participantsContainer then return end
+    if not self.participantsContainer then
+        return
+    end
     if NM.ui and NM.ui.challenge then
         NM.ui.challenge:UpdateParticipants(participants, results)
     end
@@ -520,13 +522,12 @@ function ChallengeTab:UpdateUIState(state, isHost)
         self.participantContainer:SetTitle(L["Participants"])
         self.participantContainer:SetLayout("List")
         self.participantContainer:SetFullWidth(true)
-        self.participantContainer:SetHeight(200)
         self:AddChild(self.participantContainer)
     end
-    
+
     -- Container sichtbar machen
     self.participantContainer.frame:Show()
-    
+
     -- UI-Elemente basierend auf Status aktualisieren
     if state == "inviting" then
         -- Zeige Teilnehmerliste
@@ -537,22 +538,24 @@ function ChallengeTab:UpdateUIState(state, isHost)
 end
 
 function ChallengeTab:UpdateParticipants(participants)
-    if not self.participantContainer then return end
-    
+    if not self.participantContainer then
+        return
+    end
+
     -- Lösche bestehende Einträge
     self.participantContainer:ReleaseChildren()
-    
+
     -- Füge Teilnehmer hinzu
     for name, data in pairs(participants) do
         local participantRow = AceGUI:Create("SimpleGroup")
         participantRow:SetLayout("Flow")
         participantRow:SetFullWidth(true)
-        
+
         -- Name des Teilnehmers
         local nameLabel = AceGUI:Create("Label")
         nameLabel:SetText(name)
         nameLabel:SetWidth(150)
-        
+
         -- Status des Teilnehmers
         local statusLabel = AceGUI:Create("Label")
         if data.accepted then
@@ -566,23 +569,25 @@ function ChallengeTab:UpdateParticipants(participants)
             statusLabel:SetColor(1, 1, 0) -- Gelb
         end
         statusLabel:SetWidth(100)
-        
+
         participantRow:AddChild(nameLabel)
         participantRow:AddChild(statusLabel)
-        
+
         self.participantContainer:AddChild(participantRow)
     end
-    
+
     -- Aktualisiere das Layout
     self.participantContainer:DoLayout()
-    
+
     -- Aktualisiere auch die Navigation, wenn ein Details-Frame offen ist
     self:UpdateNavigation()
 end
 
 -- Neue Funktion für den Item-Details Frame
 function ChallengeTab:ShowItemDetails(playerName)
-    if not playerName then return end
+    if not playerName then
+        return
+    end
 
     -- Erstelle neuen Frame mit Blizzard Template
     local frame = CreateFrame("Frame", "NMItemDetailsFrame", UIParent, "ButtonFrameTemplate")
@@ -593,13 +598,13 @@ function ChallengeTab:ShowItemDetails(playerName)
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
-    
+
     -- Setze Portrait
     frame.portrait = frame.PortraitContainer.portrait
-    
+
     -- Versuche zuerst das direkte Portrait
     SetPortraitTexture(frame.portrait, playerName)
-    
+
     -- Wenn kein direktes Portrait, versuche Battle.net Avatar
     if not frame.portrait:GetTexture() then
         -- Name und Realm trennen
@@ -607,16 +612,16 @@ function ChallengeTab:ShowItemDetails(playerName)
         if not realm then
             realm = GetRealmName()
         end
-        
+
         -- Setze Standard-Avatar
         frame.portrait:SetTexture("Interface\\CharacterFrame\\TEMPORARYPORTRAIT-FEMALE-BLOODELF")
         -- oder alternativ:
         -- frame.portrait:SetTexture("Interface\\CharacterFrame\\TEMPORARYPORTRAIT-MALE-BLOODELF")
     end
-    
+
     -- Setze Titel
     frame.TitleContainer.TitleText:SetText(string.format(L["Items for %s"], playerName))
-    
+
     -- Erstelle AceGUI Container
     local container = AceGUI:Create("SimpleGroup")
     container:SetLayout("List")
@@ -631,7 +636,7 @@ function ChallengeTab:ShowItemDetails(playerName)
     headerGroup:SetLayout("Flow")
     headerGroup:SetFullWidth(true)
     headerGroup:SetHeight(25)
-    
+
     -- Container nach rechts verschieben
     headerGroup.frame:SetPoint("TOPLEFT", frame, "TOPLEFT", 85, -25)
     headerGroup.frame:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -10, -25)
@@ -646,16 +651,16 @@ function ChallengeTab:ShowItemDetails(playerName)
     local nameSort = AceGUI:Create("Button")
     nameSort:SetText(L["Name"])
     nameSort:SetWidth(150)
-    nameSort:SetCallback("OnClick", function() 
-        self:SortItems(playerName, "name") 
+    nameSort:SetCallback("OnClick", function()
+        self:SortItems(playerName, "name")
     end)
     headerGroup:AddChild(nameSort)
 
     local valueSort = AceGUI:Create("Button")
     valueSort:SetText(L["Value"])
     valueSort:SetWidth(100)
-    valueSort:SetCallback("OnClick", function() 
-        self:SortItems(playerName, "totalValue") 
+    valueSort:SetCallback("OnClick", function()
+        self:SortItems(playerName, "totalValue")
     end)
     headerGroup:AddChild(valueSort)
 
@@ -671,14 +676,14 @@ function ChallengeTab:ShowItemDetails(playerName)
     headerGroup:AddChild(refreshButton)
 
     container:AddChild(headerGroup)
-    
+
     -- Scrollframe für Items
     local scroll = AceGUI:Create("ScrollFrame")
     scroll:SetLayout("Flow")
     scroll:SetFullWidth(true)
     scroll:SetHeight(350)
     container:AddChild(scroll)
-    
+
     -- Stats Container
     local statsContainer = AceGUI:Create("InlineGroup")
     statsContainer:SetLayout("Flow")
@@ -686,36 +691,35 @@ function ChallengeTab:ShowItemDetails(playerName)
     statsContainer:SetHeight(80)
     statsContainer:SetTitle(L["Statistics"])
     container:AddChild(statsContainer)
-    
+
     -- Speichere Referenzen
     frame.container = container
     frame.scroll = scroll
     frame.statsContainer = statsContainer
     self.itemDetailsFrame = frame
-    
+
     -- Close Button Event
     frame.CloseButton:SetScript("OnClick", function()
         frame:Hide()
         self.itemDetailsFrame = nil
         self.currentDetailPlayer = nil
     end)
-    
+
     frame:Show()
-    
+
     -- Speichere aktuellen Spieler
     self.currentDetailPlayer = playerName
-    
+
     -- Initial Update mit leeren Stats
     self:UpdateStats({
         totalLIV = 0,
         lootedGold = 0,
         totalGold = 0
     })
-    
+
     -- Dann Update der Items und Stats mit echten Daten
     self:UpdateItemList(playerName)
-   
- 
+
 
 end
 
@@ -726,16 +730,18 @@ function ChallengeTab:SortItems(playerName, column)
         self.currentSort.column = column
         self.currentSort.ascending = true
     end
-    
+
     self:UpdateItemList(playerName)
 end
 
 function ChallengeTab:UpdateItemList(playerName)
-    if not self.itemDetailsFrame then return end
-    
+    if not self.itemDetailsFrame then
+        return
+    end
+
     local scroll = self.itemDetailsFrame.scroll
     scroll:ReleaseChildren()  -- Wichtig: Alle Kinder freigeben vor dem Neuaufbau
-    
+
     -- Items sammeln und sortieren
     local items = {}
     local stats = {
@@ -743,12 +749,12 @@ function ChallengeTab:UpdateItemList(playerName)
         lootedGold = 0,
         totalGold = 0
     }
-    
+
     if NM.Challenge.results[playerName] then
         local result = NM.Challenge.results[playerName]
         stats.lootedGold = result.lootedGold or 0
         stats.totalGold = result.totalGold or 0
-        
+
         if result.items then
             for itemID, count in pairs(result.items) do
                 local itemName, itemLink, itemRarity, _, _, _, _, _, _, itemTexture = C_Item.GetItemInfo(itemID)
@@ -756,7 +762,7 @@ function ChallengeTab:UpdateItemList(playerName)
                     local itemValue = NM.TSM.GetItemValue(itemID, "DBRegionSaleAvg") or 0
                     local totalValue = itemValue * count
                     stats.totalLIV = stats.totalLIV + totalValue
-                    
+
                     table.insert(items, {
                         id = itemID,
                         name = itemName,
@@ -771,7 +777,7 @@ function ChallengeTab:UpdateItemList(playerName)
             end
         end
     end
-    
+
     -- Stelle sicher, dass currentSort initialisiert ist
     if not self.currentSort then
         self.currentSort = {
@@ -779,40 +785,40 @@ function ChallengeTab:UpdateItemList(playerName)
             ascending = false
         }
     end
-    
+
     -- Sortierung anwenden
     table.sort(items, function(a, b)
         local aValue = a[self.currentSort.column]
         local bValue = b[self.currentSort.column]
-        
+
         if self.currentSort.ascending then
             return aValue < bValue
         else
             return aValue > bValue
         end
     end)
-    
+
     -- Items anzeigen mit Index-basiertem Highlighting
     for index, item in ipairs(items) do
         local itemRow = AceGUI:Create("SimpleGroup")
         itemRow:SetLayout("Flow")
         itemRow:SetFullWidth(true)
         itemRow:SetHeight(30)
-        
+
         -- Alternierender Hintergrund basierend auf aktuellem Index
         if index % 2 == 0 then
             local bg = itemRow.frame:CreateTexture(nil, "BACKGROUND")
             bg:SetAllPoints()
             bg:SetColorTexture(0.2, 0.2, 0.2, 0.3)
         end
-        
+
         -- Hover Effekt
         itemRow.frame:SetScript("OnEnter", function()
             local highlight = itemRow.frame:CreateTexture(nil, "HIGHLIGHT")
             highlight:SetAllPoints()
             highlight:SetColorTexture(0.3, 0.3, 0.3, 0.3)  -- Hellerer Hintergrund beim Hover
         end)
-        
+
         -- Item Icon mit Tooltip
         local itemIcon = AceGUI:Create("Icon")
         itemIcon:SetWidth(24)
@@ -828,17 +834,17 @@ function ChallengeTab:UpdateItemList(playerName)
             GameTooltip:Hide()
         end)
         itemRow:AddChild(itemIcon)
-        
+
         -- Item Name mit Count
         local itemLabel = AceGUI:Create("InteractiveLabel")
         local displayText = string.format("%s |cFF888888x%d|r", item.name, item.count)
         itemLabel:SetText(displayText)
         itemLabel:SetWidth(200)
-        
+
         -- Farbe basierend auf Seltenheit
         local r, g, b = GetItemQualityColor(item.rarity)
         itemLabel:SetColor(r, g, b)
-        
+
         -- Tooltip und Chat Link
         itemLabel:SetCallback("OnEnter", function()
             GameTooltip:SetOwner(itemLabel.frame, "ANCHOR_RIGHT")
@@ -854,100 +860,102 @@ function ChallengeTab:UpdateItemList(playerName)
             end
         end)
         itemRow:AddChild(itemLabel)
-        
+
         -- TSM Wert (Einzeln und Gesamt)
         local valueLabel = AceGUI:Create("Label")
-        valueLabel:SetText(string.format("%s\n|cFF888888%s|r", 
-            NM.UIFunctions:FormatGold(item.totalValue),
-            NM.UIFunctions:FormatGold(item.value)))
+        valueLabel:SetText(string.format("%s\n|cFF888888%s|r",
+                NM.UIFunctions:FormatGold(item.totalValue),
+                NM.UIFunctions:FormatGold(item.value)))
         valueLabel:SetWidth(120)
         itemRow:AddChild(valueLabel)
-        
+
         scroll:AddChild(itemRow)
     end
-    
+
     -- Update Stats
     self:UpdateStats(stats)
 end
 
 function ChallengeTab:UpdateStats(stats)
-    if not self.itemDetailsFrame then return end
-    
+    if not self.itemDetailsFrame then
+        return
+    end
+
     local statsContainer = self.itemDetailsFrame.container.children[3]
     statsContainer:ReleaseChildren()
-    
+
     -- Erstelle zwei Spalten für Stats mit mehr Abstand
     local leftStats = AceGUI:Create("SimpleGroup")
     leftStats:SetLayout("Flow")
     leftStats:SetWidth(190)
     leftStats:SetHeight(80)  -- Erhöhte Höhe für mehr Abstand
-    
+
     local rightStats = AceGUI:Create("SimpleGroup")
     rightStats:SetLayout("Flow")
     rightStats:SetWidth(190)
     rightStats:SetHeight(80)  -- Erhöhte Höhe für mehr Abstand
-    
+
     -- Linke Spalte: Items LIV
     local livGroup = AceGUI:Create("SimpleGroup")
     livGroup:SetLayout("Flow")
     livGroup:SetFullWidth(true)
     livGroup:SetHeight(25)  -- Höhe für eine Zeile
-    
+
     local livLabel = AceGUI:Create("Label")
     livLabel:SetText(L["Items LIV"] .. ":")
     livLabel:SetWidth(100)
     livGroup:AddChild(livLabel)
-    
+
     local livValue = AceGUI:Create("Label")
     livValue:SetText(NM.UIFunctions:FormatGold(stats.totalLIV))
     livValue:SetWidth(80)
     livGroup:AddChild(livValue)
-    
+
     leftStats:AddChild(livGroup)
-    
+
     -- Rechte Spalte: Looted Gold
     local lootedGroup = AceGUI:Create("SimpleGroup")
     lootedGroup:SetLayout("Flow")
     lootedGroup:SetFullWidth(true)
     lootedGroup:SetHeight(25)  -- Höhe für eine Zeile
-    
+
     local lootedLabel = AceGUI:Create("Label")
     lootedLabel:SetText(L["Looted Gold"] .. ":")
     lootedLabel:SetWidth(100)
     lootedGroup:AddChild(lootedLabel)
-    
+
     local lootedValue = AceGUI:Create("Label")
     lootedValue:SetText(NM.UIFunctions:FormatGold(stats.lootedGold))
     lootedValue:SetWidth(80)
     lootedGroup:AddChild(lootedValue)
-    
+
     rightStats:AddChild(lootedGroup)
-    
+
     -- Abstand zwischen den Zeilen
     local spacer = AceGUI:Create("Label")
     spacer:SetText("")
     spacer:SetFullWidth(true)
     spacer:SetHeight(5)
     rightStats:AddChild(spacer)
-    
+
     -- Total Gold
     local totalGroup = AceGUI:Create("SimpleGroup")
     totalGroup:SetLayout("Flow")
     totalGroup:SetFullWidth(true)
     totalGroup:SetHeight(25)  -- Höhe für eine Zeile
-    
+
     local totalLabel = AceGUI:Create("Label")
     totalLabel:SetText(L["Total Gold"] .. ":")
     totalLabel:SetWidth(100)
     totalGroup:AddChild(totalLabel)
-    
+
     local totalValue = AceGUI:Create("Label")
     totalValue:SetText(NM.UIFunctions:FormatGold(stats.totalGold))
     totalValue:SetWidth(80)
     totalGroup:AddChild(totalValue)
-    
+
     rightStats:AddChild(totalGroup)
-    
+
     -- Füge beide Spalten zum Container hinzu
     statsContainer:AddChild(leftStats)
     statsContainer:AddChild(rightStats)
@@ -960,41 +968,47 @@ function NM:GetUnitIDFromName(fullName)
     if not realm then
         realm = GetRealmName() -- Aktueller Realm wenn keiner angegeben
     end
-    
+
     -- Normalisiere Realmnamen (entferne Leerzeichen etc.)
     realm = realm:gsub("%s+", "")
-    
+
     -- Prüfe Party
     for i = 1, GetNumSubgroupMembers() do
         local unitName, unitRealm = UnitName("party" .. i)
-        if not unitRealm then unitRealm = GetRealmName() end
+        if not unitRealm then
+            unitRealm = GetRealmName()
+        end
         unitRealm = unitRealm:gsub("%s+", "")
-        
+
         if name == unitName and realm == unitRealm then
             return "party" .. i
         end
     end
-    
+
     -- Prüfe Raid
     for i = 1, GetNumGroupMembers() do
         local unitName, unitRealm = UnitName("raid" .. i)
-        if not unitRealm then unitRealm = GetRealmName() end
+        if not unitRealm then
+            unitRealm = GetRealmName()
+        end
         unitRealm = unitRealm:gsub("%s+", "")
-        
+
         if name == unitName and realm == unitRealm then
             return "raid" .. i
         end
     end
-    
+
     -- Prüfe ob es der Spieler selbst ist
     local playerName, playerRealm = UnitName("player")
-    if not playerRealm then playerRealm = GetRealmName() end
+    if not playerRealm then
+        playerRealm = GetRealmName()
+    end
     playerRealm = playerRealm:gsub("%s+", "")
-    
+
     if name == playerName and realm == playerRealm then
         return "player"
     end
-    
+
     -- Wenn keine Unit gefunden, versuche einen alternativen Weg
     -- Erstelle einen Button zum Laden des Avatars
     local loadAvatarButton = AceGUI:Create("Button")
@@ -1011,7 +1025,7 @@ function NM:GetUnitIDFromName(fullName)
             end
         end)
     end)
-    
+
     return nil, loadAvatarButton
 end
 
@@ -1027,7 +1041,7 @@ end
 -- Aktualisiere die bestehende UpdateResults Funktion
 function ChallengeTab:UpdateResults(results)
     -- ... (bestehender Code) ...
-    
+
     -- Aktualisiere auch die Navigation
     self:UpdateNavigation()
 end
@@ -1035,9 +1049,7 @@ end
 -- Neue Funktion zum Aktualisieren der Key-Anzeige
 function ChallengeTab:UpdateKeyDisplay(key)
     if key and self.keyBox then
-        print("Updating key display with:", key) -- Debug print
         self.keyBox:SetText(key)
-        
         if self.copyButton then
             self.copyButton:SetDisabled(false)
         end
@@ -1045,29 +1057,31 @@ function ChallengeTab:UpdateKeyDisplay(key)
 end
 
 function ChallengeTab:StartTimer(duration)
-    if not duration then return end
+    if not duration then
+        return
+    end
     if self.timerTicker then
         self.timerTicker:Cancel()
     end
 
     local endTime = GetTime() + duration
-    
+
     -- Initialer Timer-Update
     local remaining = endTime - GetTime()
     local hours = math.floor(remaining / 3600)
     local minutes = math.floor((remaining % 3600) / 60)
     local seconds = math.floor(remaining % 60)
     self.timerLabel:SetText(string.format("%02d:%02d:%02d", hours, minutes, seconds))
-    
+
     self.timerTicker = C_Timer.NewTicker(1, function()
         local remaining = endTime - GetTime()
-        
+
         if remaining <= 0 then
             -- Timer ist abgelaufen
             self.timerTicker:Cancel()
             self.timerTicker = nil
             self.timerLabel:SetText("00:00:00")
-            
+
             -- Sende Broadcast für Challenge Ende mit leeren Daten
             if NM.Challenge then
                 NM.Challenge:BroadcastMessage("CHALLENGE_END", {})
@@ -1077,7 +1091,7 @@ function ChallengeTab:StartTimer(duration)
             local hours = math.floor(remaining / 3600)
             local minutes = math.floor((remaining % 3600) / 60)
             local seconds = math.floor(remaining % 60)
-            
+
             self.timerLabel:SetText(string.format("%02d:%02d:%02d", hours, minutes, seconds))
         end
     end)
@@ -1102,21 +1116,21 @@ end
 
 -- Füge diese neue Funktion hinzu:
 function ChallengeTab:HandleChallengeStart(data)
-    if not data or not data.duration then 
+    if not data or not data.duration then
         print("HandleChallengeStart: Keine gültigen Timer-Daten")
-        return 
+        return
     end
-    
+
     print("HandleChallengeStart:")
     print("Duration:", data.duration)
     print("StartTime:", data.startTime)
-    
+
     -- Berechne die verbleibende Zeit basierend auf der Startzeit
     local elapsed = GetTime() - data.startTime
     local remainingTime = data.duration - elapsed
-    
+
     print("Remaining Time:", remainingTime)
-    
+
     -- Starte den Timer nur, wenn noch Zeit übrig ist
     if remainingTime > 0 then
         self:StartTimer(remainingTime)

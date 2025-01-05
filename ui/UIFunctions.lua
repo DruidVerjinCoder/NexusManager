@@ -105,7 +105,7 @@ end
 -- @return string Der formatierte Goldwert (z.B. "1g 23s 45c" oder "1,2345")
 function NM.UIFunctions:FormatGold(value)
     if not value or value == 0 then
-        return "0g"
+        return "|cFFFFD7000g|r |cFFC0C0C00s|r |cFFB873330c|r"
     end
 
     local gold = math.floor(value / 10000)
@@ -114,13 +114,13 @@ function NM.UIFunctions:FormatGold(value)
 
     local result = ""
     if gold > 0 then
-        result = gold .. "g "
+        result = gold .. "|cFFFFD700g|r "
     end
     if silver > 0 or gold > 0 then
-        result = result .. silver .. "s "
+        result = result .. silver .. "|cFFC0C0C0s|r "
     end
     if copper > 0 or (gold == 0 and silver == 0) then
-        result = result .. copper .. "c"
+        result = result .. copper .. "|cFFB87333c|r"
     end
 
     return result:trim()

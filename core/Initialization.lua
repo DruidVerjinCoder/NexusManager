@@ -29,34 +29,17 @@ function NM:GetLocales(locale)
 end
 
 -- Logging functions
-function NM:Log(msg)
-    if DEBUG then
-        self:Print(msg)
-    end
-end
-
-function NM:LogTable(tbl, indent)
-    if not DEBUG then return end
-    
-    indent = indent or ""
-    for k, v in pairs(tbl) do
-        if type(v) == "table" then
-            self:Print(indent .. tostring(k) .. ":")
-            self:LogTable(v, indent .. "  ")
-        else
-            self:Print(indent .. tostring(k) .. " = " .. tostring(v))
-        end
-    end
+function NM:Log(category, msg, metadata)
+    NM.LogFrame:AddLog(category, msg, metadata)
 end
 
 -- Database initialization and management
 function NM:InitializeCharacter()
     local guid = UnitGUID("player")
     if not guid then
-        self:Log("Error: Could not get player GUID")
         return nil
     end
-    
+
     if not self.db.global.characters[guid] then
         local className = select(2, GetPlayerInfoByGUID(guid))
         self.db.global.characters[guid] = {
@@ -72,7 +55,7 @@ function NM:InitializeCharacter()
         }
         self:Log("New character initialized: " .. (UnitName("player") or "Unknown"))
     end
-    
+
     return guid
 end
 
@@ -80,12 +63,12 @@ function NM:InitializeDB()
     if not self.db.global.characters then
         self.db.global.characters = {}
     end
-    
+
     if not self.db.global.profession then
         self:Log("Initializing profession table")
         self.db.global.profession = self:GetProfessionTable()
     end
-    
+
     if not self.db.profile then
         self.db.profile = {
             general = {
@@ -96,8 +79,10 @@ function NM:InitializeDB()
 end
 
 function NM:Debug(...)
-    if not self.db.profile.debug then return end
-    
+    if not self.db.profile.debug then
+        return
+    end
+
     local message = string.format(...)
     local timestamp = date("%H:%M:%S")
     print(string.format("|cFF69CCF0[NM Debug %s]|r %s", timestamp, message))
@@ -107,9 +92,9 @@ function NM:OnInitialize()
     self.db = AceDB:New("NexusManagerDB")
     self:InitializeDB()
     self.guid = self:InitializeCharacter()
-    
+
     self:RegisterChatCommand("nm", "OpenNexusManager")
-    
+
     -- Register events mit korrekter Methodenbindung
     self:RegisterEvent("CHAT_MSG_LOOT", function(...)
         if NM.session then
@@ -131,21 +116,21 @@ function NM:OnInitialize()
             NM.session:moneyChanged(...)
         end
     end)
-    
+
     -- Registriere Challenge Kommunikation
     self:RegisterEvent("BN_CHAT_MSG_ADDON")
-    
+
     -- Registriere den Addon-Präfix für Battle.net-Kommunikation
     C_ChatInfo.RegisterAddonMessagePrefix("NM_CHALLENGE")
-    
+
     -- Default Einstellungen
     local defaults = {
         profile = {
-            debug = true,  -- Debug-Modus standardmäßig aus
+            debug = true, -- Debug-Modus standardmäßig aus
             -- ... andere defaults ...
         }
     }
-    
+
     self.db = LibStub("AceDB-3.0"):New("NexusManagerDB", defaults, true)
 end
 
@@ -154,8 +139,10 @@ function NM:OnEnable()
 end
 
 function NM:BN_CHAT_MSG_ADDON(event, prefix, message, channel, sender)
-    if prefix ~= "NM_CHALLENGE" then return end
-    
+    if prefix ~= "NM_CHALLENGE" then
+        return
+    end
+
     NM.Challenge:HandleMessage(sender, message)
 end
 
@@ -169,7 +156,7 @@ function NM:OpenNexusManager(input)
         self:Print(help_text)
         return
     end
-    
+
     if not self.Frame then
         self:CreateMainFrame()
     end
@@ -178,11 +165,11 @@ end
 function NM:CreateUniqueKeyForTodo(title)
     local titleWithId = title .. self.guid
     local hash = 0
-    
+
     for i = 1, #titleWithId do
-        hash = (hash * 31 + string.byte(titleWithId, i)) % 2^32
+        hash = (hash * 31 + string.byte(titleWithId, i)) % 2 ^ 32
     end
-    
+
     return string.format("%08x", hash)
 end
 

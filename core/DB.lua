@@ -109,7 +109,7 @@ local defaults = {
 }
 
 function DB:OnInitialize()
-    NM:Log("Initializing DB")
+    NM:Log("SYSTEM","Initializing Database",{})
     -- Initialisiere die Datenbank
     NM.db = LibStub("AceDB-3.0"):New("NexusManagerDB", defaults, true)
     
@@ -121,18 +121,15 @@ function DB:MigrateProfile()
     if not NM.db or not NM.db.profile then return end
     
     local currentVersion = NM.db.profile.dbVersion or 0
-    NM:Log(string.format("Current DB version: %d, Latest version: %d", currentVersion, CURRENT_DB_VERSION))
 
     -- Migration für jede Version durchführen
     while currentVersion < CURRENT_DB_VERSION do
         currentVersion = currentVersion + 1
-        NM:Log("Migrating to version " .. currentVersion)
 
         -- Version 1: Grundstruktur und tradeskill -> tradegoods Migration
         if currentVersion == 1 then
             -- Migriere tradeskill zu tradegoods
             if NM.db.profile.tradeskill then
-                NM:Log("Migrating tradeskill to tradegoods...")
                 if not NM.db.profile.tradegoods then
                     NM.db.profile.tradegoods = {}
                 end
@@ -146,13 +143,11 @@ function DB:MigrateProfile()
             for category, defaults in pairs(defaults.profile) do
                 if type(defaults) == "table" and category ~= "minimap" then
                     if not NM.db.profile[category] then
-                        NM:Log("Creating missing category: " .. category)
                         NM.db.profile[category] = {}
                     end
                     -- Füge fehlende Keys hinzu
                     for k, v in pairs(defaults) do
                         if NM.db.profile[category][k] == nil then
-                            NM:Log(string.format("Adding missing key: %s.%s", category, k))
                             NM.db.profile[category][k] = v
                         end
                     end
@@ -167,7 +162,6 @@ function DB:MigrateProfile()
 
         -- Aktualisiere die Versionnummer
         NM.db.profile.dbVersion = currentVersion
-        NM:Log("Migration to version " .. currentVersion .. " complete")
     end
 
 end
@@ -925,18 +919,12 @@ function DB:ShouldTrackItem(itemID)
     if not itemName then return false end
 
     -- Debug output
-    NM:Log("=== ShouldTrackItem Debug ===")
-    NM:Log(string.format("Checking item: %s (ID: %d)", itemName, itemID))
-    NM:Log(string.format("Type: %s, Rarity: %d", itemType or "nil", itemRarity or -1))
-    
     if not NM.db.profiles[profileName] then
-        NM:Log("Profile not found!")
         return false
     end
     
     local settings = NM.db.profiles[profileName].scrollFrame
     if not settings then
-        NM:Log("No scrollFrame settings found!")
         return false
     end
 
@@ -953,7 +941,6 @@ function DB:ShouldTrackItem(itemID)
         
         local rarityKey = rarityMap[itemRarity]
         if rarityKey and settings[rarityKey] then
-            NM:Log(string.format("Item is %s %s, tracking enabled", rarityKey, itemType))
             return true
         end
     end
@@ -979,12 +966,10 @@ function DB:ShouldTrackItem(itemID)
         
         local settingName = subclassMap[subclassID]
         if settingName and settings[settingName] then
-            NM:Log(string.format("Item is %s, tracking enabled", settingName))
             return true
         end
     end
 
-    NM:Log("Item not tracked")
     return false
 end
 
