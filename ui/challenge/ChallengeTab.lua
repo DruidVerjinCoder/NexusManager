@@ -107,6 +107,12 @@ function ChallengeTab:Create()
     end)
     inputGroup:AddChild(resetButton)
 
+-- Spacer zwischen Buttons
+local buttonSpacer2 = AceGUI:Create("Label")
+buttonSpacer2:SetText("")
+buttonSpacer2:SetWidth(10)  -- Abstand zwischen Buttons
+inputGroup:AddChild(buttonSpacer2)
+
     local startButton = AceGUI:Create("Icon")
     startButton:SetImage("Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up")
     startButton:SetImageSize(20, 20)
@@ -199,9 +205,15 @@ function ChallengeTab:Create()
     participantsScroll:SetHeight(80)
     participantsContainer:AddChild(participantsScroll)
 
+    -- Spacer zwischen Buttons
+    local buttonSpacer3 = AceGUI:Create("Label")
+    buttonSpacer3:SetText("")
+    buttonSpacer3:SetWidth(10)  -- Abstand zwischen Buttons
+    inputGroup:AddChild(buttonSpacer3)
+
     -- Invite Icon Button mit korrigiertem Scope
     local inviteButton = AceGUI:Create("Icon")
-    inviteButton:SetImage("Interface\\GossipFrame\\BankerGossipIcon")
+    inviteButton:SetImage("Interface\\Icons\\INV_Letter_15")
     inviteButton:SetImageSize(20, 20)
     inviteButton:SetWidth(26)
     inviteButton:SetHeight(26)
@@ -307,15 +319,6 @@ function ChallengeTab:Create()
                 duration = NM.Challenge.duration,
                 startTime = GetTime()
             })
-        end
-
-        -- Starte regelmäßige Updates
-        if not NM.Challenge.updateTimer then
-            NM.Challenge.updateTimer = C_Timer.NewTicker(5, function()
-                if NM.session and NM.session.state == "running" then
-                    NM.session:SendChallengeUpdate()
-                end
-            end)
         end
     end)
 

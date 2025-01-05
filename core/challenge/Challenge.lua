@@ -260,6 +260,8 @@ function Challenge:AddResult(player, results)
 end
 
 function Challenge:BroadcastMessage(type, data, specificID)
+    NM:Log("CHALLENGE", type, data)
+
     -- Füge den Key zu den Daten hinzu
     if type ~= "INVITE" then
         -- Bei Einladungen noch keinen Key mitschicken
