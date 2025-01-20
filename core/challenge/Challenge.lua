@@ -113,7 +113,6 @@ function Challenge:Reset()
 
     if NM.ui.challenge then
         NM.ui.challenge:UpdateParticipants(self.participants)
-        NM.ui.challenge:UpdateResults(self.results)
         NM.ui.challenge:UpdateUIState("initial", false)
     end
 end
@@ -252,11 +251,6 @@ function Challenge:AddResult(player, results)
         totalGold = results.totalGold or 0,
         lootedGold = results.lootedGold or 0
     }
-
-    if NM.ui.challenge then
-        NM.ui.challenge:UpdateResults(self.results)
-    end
-
 end
 
 function Challenge:BroadcastMessage(type, data, specificID)

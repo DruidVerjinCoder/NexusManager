@@ -323,12 +323,6 @@ function session:SendChallengeUpdate()
         totalGold = currentData.totalGold,
         lootedGold = currentData.lootedGold
     }
-
-    -- UI aktualisieren
-    if NM.ChallengeTab then
-        NM.ChallengeTab:UpdateResults(NM.Challenge.results)
-    end
-
     -- Broadcast nur wenn es andere Teilnehmer gibt
     NM.Challenge:BroadcastMessage("LIVE_UPDATE", currentData)
 end
